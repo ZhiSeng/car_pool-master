@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'available_rides.dart';
 
 class FindARidePage extends StatefulWidget {
   @override
@@ -19,7 +20,7 @@ class _FindARidePageState extends State<FindARidePage> {
   bool nonSmoking = false;
 
   // List of locations for the dropdown
-  final List<String> locations = ['Location A', 'Location B', 'Location C', 'Location D'];
+  final List<String> locations = ['Location A', 'Location B', 'Location C', 'Location D', 'TARUMT Main Gate', 'TARUMT East Campus'];
 
   @override
   Widget build(BuildContext context) {
@@ -209,12 +210,20 @@ class _FindARidePageState extends State<FindARidePage> {
     } else if (fromLocation == toLocation) {
       _showSnackbar('Pickup and Dropoff locations cannot be the same.');
     } else {
-      // Proceed with the ride booking logic
-      print('From: $fromLocation, To: $toLocation');
-      print('Music Preference: $musicPreference');
-      print('Pet Friendly: $petFriendly');
-      print('Non-Smoking: $nonSmoking');
-      print('Seats Needed: $seatCount');
+      // Navigate to the available rides page
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AvailableRidesPage(
+            fromLocation: fromLocation!,
+            toLocation: toLocation!,
+            seatCount: seatCount,
+            musicPreference: musicPreference,
+            petFriendly: petFriendly,
+            nonSmoking: nonSmoking,
+          ),
+        ),
+      );
     }
   }
 
