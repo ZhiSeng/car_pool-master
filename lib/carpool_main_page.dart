@@ -3,6 +3,7 @@ import 'carpool_registration.dart';
 import 'database_helper.dart';
 import 'profile_page.dart';
 import 'rate_review_list_page.dart';
+import 'find_a_ride.dart';
 
 
 class CarpoolMainPage extends StatefulWidget {
@@ -84,6 +85,15 @@ class _CarpoolMainPageState extends State<CarpoolMainPage> {
                 );
               },
               child: Text('Register a Carpool'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => FindARidePage()),
+                );
+              },
+              child: Text('Find a Ride'), // Button for FindARidePage
             ),
             ElevatedButton(
               onPressed: () async {
