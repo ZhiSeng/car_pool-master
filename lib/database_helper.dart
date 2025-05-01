@@ -66,6 +66,18 @@ class DatabaseHelper {
         FOREIGN KEY(userID) REFERENCES users(userID)
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE rides (
+        rideID INTEGER PRIMARY KEY AUTOINCREMENT,
+        carpoolID INTEGER NOT NULL,
+        userID INTEGER NOT NULL, -- passenger
+        status TEXT DEFAULT 'requested',  -- requested, confirmed, completed, canceled
+        pickupNote TEXT,
+        FOREIGN KEY(carpoolID) REFERENCES carpools(id),
+        FOREIGN KEY(userID) REFERENCES users(userID)
+      )
+    ''');
   }
 
   // Insert a new user
@@ -97,6 +109,11 @@ class DatabaseHelper {
     );
   }
 
+  // Insert new ride (passenger requests a ride)
+  Future<int> insertRide(Map<String, dynamic> ride) async {
+    final db = await database;
+    return await db.insert('rides', ride);
+  }
 
   // Get user by email (used for login and password retrieval)
   Future<Map<String, dynamic>?> getUser(String email) async {
@@ -109,6 +126,85 @@ class DatabaseHelper {
     return results.isNotEmpty ? results.first : null;
   }
 
+  // Get all rides by passenger
+  Future<List<Map<String, dynamic>>> getRidesByPassenger(int userID) async {
+    final db = await database;
+    return await db.query('rides', where: 'userID = ?', whereArgs: [userID]);
+  }
+
+  // Get confirmed passengers for a carpool
+  Future<List<Map<String, dynamic>>> getConfirmedRidesForCarpool(int carpoolID) async {
+    final db = await database;
+    return await db.query(
+      'rides',
+      where: 'carpoolID = ? AND status = ?',
+      whereArgs: [carpoolID, 'confirmed'],
+    );
+  }
+
+  Future<String> requestRide(int carpoolID, int userID, {String pickupNote = ''}) async {
+    final db = await database;
+    try {
+      await db.insert('rides', {
+        'carpoolID': carpoolID,
+        'userID': userID,
+        'pickupNote': pickupNote,
+        'status': 'Requested',  // <-- Not Confirmed!
+      });
+      return 'Ride requested successfully!';
+    } catch (e) {
+      return 'Failed to request ride: $e';
+    }
+  }
+
+  // Cancel a confirmed ride
+  Future<bool> cancelRide(int carpoolID, int userID) async {
+    final db = await database;
+
+    // Check if a confirmed ride exists
+    final existing = await db.query(
+      'rides',
+      where: 'carpoolID = ? AND userID = ? AND status = ?',
+      whereArgs: [carpoolID, userID, 'Requested'],
+    );
+
+    if (existing.isEmpty) return false; // No confirmed ride found
+
+    // Update the ride status to 'canceled'
+    await db.update(
+      'rides',
+      {'status': 'canceled'},
+      where: 'carpoolID = ? AND userID = ?',
+      whereArgs: [carpoolID, userID],
+    );
+
+    return true;
+  }
+
+  // Expire a pending ride if it hasn't been confirmed in 3 minutes
+  Future<bool> expireRide(int carpoolID, int userID) async {
+    final db = await database;
+
+    // Check if a pending ride exists (not yet confirmed)
+    final existing = await db.query(
+      'rides',
+      where: 'carpoolID = ? AND userID = ? AND status = ?',
+      whereArgs: [carpoolID, userID, 'Requested'],
+    );
+
+    if (existing.isEmpty) return false; // No pending ride found
+
+    // Update the ride status to 'expired'
+    await db.update(
+      'rides',
+      {'status': 'expired'},
+      where: 'carpoolID = ? AND userID = ?',
+      whereArgs: [carpoolID, userID],
+    );
+
+    return true;
+  }
+
   // Update user password
   Future<void> updateUserPassword(String email, String newPassword) async {
     final db = await database;
@@ -118,6 +214,12 @@ class DatabaseHelper {
       where: 'email = ?',
       whereArgs: [email],
     );
+  }
+
+  // Update ride status (e.g., to confirmed or canceled)
+  Future<void> updateRideStatus(int rideID, String status) async {
+    final db = await database;
+    await db.update('rides', {'status': status}, where: 'rideID = ?', whereArgs: [rideID]);
   }
 
   // Fetch all completed or canceled carpools for the user in carpool history

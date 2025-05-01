@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'database_helper.dart';
+import 'waiting_for_confirmation.dart';
 
 class AvailableRidesPage extends StatefulWidget {
   final String fromLocation;
@@ -68,6 +69,16 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
   }
 
   void _showRideDetailsSheet(BuildContext context, Map<String, dynamic> carpool) {
+    TextEditingController pickupNoteController = TextEditingController();
+
+    // Ensure carpoolID is not null
+    int? carpoolID = carpool['id']; // Replace with your actual field name
+
+    if (carpoolID == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: Invalid ride details')));
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -176,7 +187,25 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                     ),
                   ),
                 ),
-
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Pickup Note', style: TextStyle(fontWeight: FontWeight.bold)),
+                      SizedBox(height: 8),
+                      TextField(
+                        controller: pickupNoteController,
+                        keyboardType: TextInputType.text,
+                        maxLines: 2,
+                        decoration: InputDecoration(
+                          hintText: 'Enter additional pickup instructions...',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 // Bottom buttons
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
@@ -195,10 +224,29 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                       SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () {
+                          onPressed: () async {
+                            DatabaseHelper dbHelper = DatabaseHelper.instance;
+                            int userID = 1; // replace with the current logged-in passenger's userID
+                            String pickupNote = pickupNoteController.text.trim();
+
+                            print(carpoolID);
+                            print(userID);
+                            print(pickupNote);
+
+                            // Request the ride
+                            String result = await dbHelper.requestRide(carpoolID, userID, pickupNote: pickupNote);
+
+                            // Show result
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result)));
+
+                            // Close bottom sheet before navigating
                             Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Ride requested successfully!')),
+
+                            // Then navigate
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => WaitingForConfirmationPage(carpoolID: carpoolID,
+                                  userID: userID,)),
                             );
                           },
                           style: ElevatedButton.styleFrom(
@@ -217,8 +265,6 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
       },
     );
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -275,6 +321,14 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                                   'Date & Time: ${_formatDateTime(carpool['date'], carpool['time'])}',
                                   style: TextStyle(fontSize: 16),
                                 ),
+                                if (carpool['ridePreference'] != null && carpool['ridePreference'].toString().isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4.0),
+                                    child: Text(
+                                      'Preference: ${carpool['ridePreference']}',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
+                                  ),
                                 SizedBox(height: 4),
                                 Row(
                                   children: [
@@ -286,14 +340,6 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                                     ),
                                   ],
                                 ),
-                                if (carpool['ridePreference'] != null && carpool['ridePreference'].toString().isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4.0),
-                                    child: Text(
-                                      'Preference: ${carpool['ridePreference']}',
-                                      style: TextStyle(fontSize: 16),
-                                    ),
-                                  ),
                                 SizedBox(height: 4),
                                 Align(
                                   alignment: Alignment.centerRight,
