@@ -2,8 +2,15 @@ import 'package:flutter/material.dart';
 import 'login_screen.dart';
 import 'registration_screen.dart';
 import 'retrieve_password_screen.dart';
+import 'package:firebase_core/firebase_core.dart';  // Make sure this import is correct
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-void main() => runApp(MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();  // Initialize Firebase before app starts
+  runApp(MyApp());
+}
 
 class MyApp extends StatelessWidget {
   @override

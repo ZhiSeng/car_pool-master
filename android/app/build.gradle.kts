@@ -30,6 +30,8 @@ android {
         versionName = flutter.versionName
     }
 
+    ndkVersion = "27.0.12077973"
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
@@ -42,3 +44,6 @@ android {
 flutter {
     source = "../.."
 }
+
+// Apply the Google services plugin at the bottom
+apply(plugin = "com.google.gms.google-services")

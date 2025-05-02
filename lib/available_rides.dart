@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'database_helper.dart';
@@ -30,52 +31,55 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
   @override
   void initState() {
     super.initState();
-    activeCarpools = _fetchActiveCarpools();
+    activeCarpools = Future.value([]);
+    _syncDataAndFetchRides();
   }
 
-  Future<List<Map<String, dynamic>>> _fetchActiveCarpools() async {
-    DatabaseHelper dbHelper = DatabaseHelper.instance;
-    int userID = 1; // Replace with actual user ID in real app
-    List<Map<String, dynamic>> allRides = await dbHelper.getCarpools(userID);
+  // Sync Firestore data and then fetch rides from SQLite
+  Future<List<Map<String, dynamic>>> _syncDataAndFetchRides() async {
+    // First, update SQLite with Firestore data
+    await DatabaseHelper.instance.updateSQLiteFromFirestore();
 
-    return allRides.where((ride) {
-      bool locationMatch = ride['pickUpPoint'] == widget.fromLocation &&
-          ride['dropOffPoint'] == widget.toLocation;
+    // Then fetch active rides from SQLite based on user preferences
+    List<Map<String, dynamic>> rides = await DatabaseHelper.instance.getActiveCarpools(
+      fromLocation: widget.fromLocation,
+      toLocation: widget.toLocation,
+      seatCount: widget.seatCount,
+      musicPreference: widget.musicPreference,
+      petFriendly: widget.petFriendly,
+      nonSmoking: widget.nonSmoking,
+    );
 
-      bool preferenceMatch = true;
-      if (widget.musicPreference) {
-        preferenceMatch &= ride['ridePreference']?.contains('Music') ?? false;
-      }
-      if (widget.petFriendly) {
-        preferenceMatch &= ride['ridePreference']?.contains('Pet') ?? false;
-      }
-      if (widget.nonSmoking) {
-        preferenceMatch &= ride['ridePreference']?.contains('Non-Smoking') ?? false;
-      }
+    setState(() {
+      activeCarpools = Future.value(rides);
+    });
 
-      bool seatAvailable = ride['availableSeats'] >= widget.seatCount;
-
-      return locationMatch && preferenceMatch && seatAvailable;
-    }).toList();
+    return rides;
   }
 
   String _formatDateTime(String date, String time) {
     try {
-      final formatted = '$date ${time.split(':')[0].padLeft(2, '0')}:${time.split(':')[1].padLeft(2, '0')}';
+      final formatted =
+          '$date ${time.split(':')[0].padLeft(2, '0')}:${time.split(':')[1].padLeft(2, '0')}';
       return DateFormat('yyyy-MM-dd HH:mm').format(DateTime.parse(formatted));
     } catch (e) {
       return 'Invalid Date/Time';
     }
   }
 
-  void _showRideDetailsSheet(BuildContext context, Map<String, dynamic> carpool) {
+  void _showRideDetailsSheet(
+    BuildContext context,
+    Map<String, dynamic> carpool,
+  ) {
     TextEditingController pickupNoteController = TextEditingController();
 
     // Ensure carpoolID is not null
     int? carpoolID = carpool['id']; // Replace with your actual field name
 
     if (carpoolID == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: Invalid ride details')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: Invalid ride details')));
       return;
     }
 
@@ -88,9 +92,9 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
       ),
       builder: (BuildContext context) {
         return DraggableScrollableSheet(
-          initialChildSize: 0.5,
-          minChildSize: 0.4,
-          maxChildSize: 0.9,
+          initialChildSize: 0.55,
+          minChildSize: 0.3,
+          maxChildSize: 0.8,
           expand: false,
           builder: (context, scrollController) {
             return Column(
@@ -110,13 +114,19 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
 
                 // Top bar with title
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         'Confirm Ride',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       Icon(Icons.directions_car, color: Colors.blueAccent),
                     ],
@@ -130,7 +140,10 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                 Expanded(
                   child: SingleChildScrollView(
                     controller: scrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -141,7 +154,10 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                               children: [
                                 Column(
                                   children: [
-                                    Icon(Icons.radio_button_checked, color: Colors.green),
+                                    Icon(
+                                      Icons.radio_button_checked,
+                                      color: Colors.green,
+                                    ),
                                     Container(
                                       height: 30,
                                       width: 2,
@@ -154,11 +170,29 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('From', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                    Text(carpool['pickUpPoint'], style: TextStyle(fontSize: 16)),
+                                    Text(
+                                      'From',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      carpool['pickUpPoint'],
+                                      style: TextStyle(fontSize: 16),
+                                    ),
                                     SizedBox(height: 8),
-                                    Text('To', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                    Text(carpool['dropOffPoint'], style: TextStyle(fontSize: 16)),
+                                    Text(
+                                      'To',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      carpool['dropOffPoint'],
+                                      style: TextStyle(fontSize: 16),
+                                    ),
                                   ],
                                 ),
                               ],
@@ -175,7 +209,8 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                           'Available Seats: ${carpool['availableSeats']}',
                           style: TextStyle(fontSize: 16),
                         ),
-                        if (carpool['ridePreference'] != null && carpool['ridePreference'].toString().isNotEmpty)
+                        if (carpool['ridePreference'] != null &&
+                            carpool['ridePreference'].toString().isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 6.0),
                             child: Text(
@@ -188,11 +223,17 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Pickup Note', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(
+                        'Pickup Note',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       SizedBox(height: 8),
                       TextField(
                         controller: pickupNoteController,
@@ -208,7 +249,10 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                 ),
                 // Bottom buttons
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 15,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
@@ -226,18 +270,26 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                         child: ElevatedButton(
                           onPressed: () async {
                             DatabaseHelper dbHelper = DatabaseHelper.instance;
-                            int userID = 1; // replace with the current logged-in passenger's userID
-                            String pickupNote = pickupNoteController.text.trim();
+                            int userID =
+                                1; // replace with the current logged-in passenger's userID
+                            String pickupNote =
+                                pickupNoteController.text.trim();
 
                             print(carpoolID);
                             print(userID);
                             print(pickupNote);
 
                             // Request the ride
-                            String result = await dbHelper.requestRide(carpoolID, userID, pickupNote: pickupNote);
+                            String result = await dbHelper.requestRide(
+                              carpoolID,
+                              userID,
+                              pickupNote: pickupNote,
+                            );
 
                             // Show result
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result)));
+                            ScaffoldMessenger.of(
+                              context,
+                            ).showSnackBar(SnackBar(content: Text(result)));
 
                             // Close bottom sheet before navigating
                             Navigator.pop(context);
@@ -245,8 +297,13 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                             // Then navigate
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => WaitingForConfirmationPage(carpoolID: carpoolID,
-                                  userID: userID,)),
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => WaitingForConfirmationPage(
+                                      carpoolID: carpoolID,
+                                      userID: userID,
+                                    ),
+                              ),
                             );
                           },
                           style: ElevatedButton.styleFrom(
@@ -264,6 +321,13 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
         );
       },
     );
+  }
+
+  Future<void> _refreshCarpools() async {
+    List<Map<String, dynamic>> newCarpools = await _syncDataAndFetchRides();
+    setState(() {
+      activeCarpools = Future.value(newCarpools);
+    });
   }
 
   @override
@@ -292,77 +356,98 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                   } else {
                     List<Map<String, dynamic>> carpools = snapshot.data!;
 
-                    return ListView.builder(
-                      itemCount: carpools.length,
-                      itemBuilder: (context, index) {
-                        var carpool = carpools[index];
+                     return RefreshIndicator(
+                       onRefresh: _refreshCarpools,
+                       child:
+                      ListView.builder(
+                        itemCount: carpools.length,
+                        itemBuilder: (context, index) {
+                          var carpool = carpools[index];
 
-                        return Card(
-                          margin: EdgeInsets.symmetric(vertical: 10),
-                          elevation: 4,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'From: ${carpool['pickUpPoint']}',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'To: ${carpool['dropOffPoint']}',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'Date & Time: ${_formatDateTime(carpool['date'], carpool['time'])}',
-                                  style: TextStyle(fontSize: 16),
-                                ),
-                                if (carpool['ridePreference'] != null && carpool['ridePreference'].toString().isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4.0),
-                                    child: Text(
-                                      'Preference: ${carpool['ridePreference']}',
-                                      style: TextStyle(fontSize: 16),
+                          return Card(
+                            margin: EdgeInsets.symmetric(vertical: 10),
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'From: ${carpool['pickUpPoint']}',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Icon(Icons.person, color: Colors.green[700]),  // Person icon for each available seat
-                                    SizedBox(width: 6),
-                                    Text(
-                                      '× ${carpool['availableSeats']}',
-                                      style: TextStyle(fontSize: 16),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'To: ${carpool['dropOffPoint']}',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
                                     ),
-                                  ],
-                                ),
-                                SizedBox(height: 4),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blueAccent,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Date & Time: ${_formatDateTime(
+                                        carpool['date'], carpool['time'])}',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                  if (carpool['ridePreference'] != null &&
+                                      carpool['ridePreference']
+                                          .toString()
+                                          .isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4.0),
+                                      child: Text(
+                                        'Preference: ${carpool['ridePreference']}',
+                                        style: TextStyle(fontSize: 16),
                                       ),
                                     ),
-                                    onPressed: () {
-                                      _showRideDetailsSheet(context, carpool);
-                                    },
-                                    child: Text('Request Ride'),
+                                  SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.person,
+                                        color: Colors.green[700],
+                                      ),
+                                      // Person icon for each available seat
+                                      SizedBox(width: 6),
+                                      Text(
+                                        '× ${carpool['availableSeats']}',
+                                        style: TextStyle(fontSize: 16),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
+                                  SizedBox(height: 4),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blueAccent,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        _showRideDetailsSheet(context, carpool);
+                                      },
+                                      child: Text('Request Ride'),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                    );
-                  }
+                          );
+                        }
+                      )
+                      );
+                    };
                 },
               ),
             ),

@@ -1,9 +1,12 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   DatabaseHelper._init();
 
@@ -41,6 +44,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE carpools (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        firestoreID TEXT,
         userID INTEGER NOT NULL,
         pickUpPoint TEXT NOT NULL,
         dropOffPoint TEXT NOT NULL,
@@ -80,15 +84,47 @@ class DatabaseHelper {
     ''');
   }
 
+  // Anonymous sign-in method
+  Future<User?> signInAnonymously() async {
+    try {
+      UserCredential userCredential = await _auth.signInAnonymously();
+      User? user = userCredential.user;
+      print('Anonymous user UID: ${user?.uid}');
+      return user;
+    } catch (e) {
+      print('Failed to sign in anonymously: $e');
+      return null;
+    }
+  }
+
   // Insert a new user
   Future<int> insertUser(Map<String, dynamic> user) async {
     final db = await database;
-    return await db.insert(
-      'users',  // Table name
-      user,     // User data to insert
-      conflictAlgorithm: ConflictAlgorithm.replace, // In case of conflict, replace
+
+    // Insert user into SQLite
+    int userID = await db.insert(
+      'users',
+      user,
+      conflictAlgorithm: ConflictAlgorithm.replace,
     );
+
+    // Insert into Firestore
+    try {
+      await FirebaseFirestore.instance.collection('users').add({
+        'userID': userID, // SQLite-generated ID
+        'username': user['username'],
+        'email': user['email'],
+        'password': user['password'], // NOTE: avoid storing plain passwords in production
+        'security_question': user['security_question'],
+        'security_answer': user['security_answer'],
+      });
+    } catch (e) {
+      print('Failed to insert user into Firestore: $e');
+    }
+
+    return userID;
   }
+
   // Update the carpool status (completed or canceled)
   Future<void> updateCarpoolStatus(int carpoolID, String status) async {
     final db = await database;
@@ -99,20 +135,72 @@ class DatabaseHelper {
       whereArgs: [carpoolID],
     );
   }
-// Insert a new carpool into the database
+
+// Insert a new carpool into both SQLite and Firestore
   Future<int> insertCarpool(Map<String, dynamic> carpool) async {
     final db = await database;
-    return await db.insert(
-      'carpools',  // Table name
-      carpool,     // Carpool data to insert
-      conflictAlgorithm: ConflictAlgorithm.replace, // In case of conflict, replace
-    );
+
+    // Insert into Firestore first, Firestore automatically generates an ID
+    try {
+      DocumentReference docRef = await FirebaseFirestore.instance.collection('carpools').add({
+        'userID': carpool['userID'],
+        'pickUpPoint': carpool['pickUpPoint'],
+        'dropOffPoint': carpool['dropOffPoint'],
+        'date': carpool['date'],
+        'time': carpool['time'],
+        'availableSeats': carpool['availableSeats'],
+        'ridePreference': carpool['ridePreference'],
+        'status': carpool['status'],
+        'earnings': carpool['earnings'],
+      });
+
+      // After successfully adding to Firestore, insert the rest into SQLite
+      Map<String, dynamic> carpoolData = {
+        'userID': carpool['userID'],
+        'pickUpPoint': carpool['pickUpPoint'],
+        'dropOffPoint': carpool['dropOffPoint'],
+        'date': carpool['date'],
+        'time': carpool['time'],
+        'availableSeats': carpool['availableSeats'],
+        'ridePreference': carpool['ridePreference'],
+        'status': carpool['status'],
+        'earnings': carpool['earnings'],
+        'firestoreID': docRef.id,
+      };
+
+      // Insert into SQLite, no need to store Firestore ID here
+      int carpoolID = await db.insert(
+        'carpools',
+        carpoolData,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      return carpoolID;  // Return SQLite ID for future references
+    } catch (e) {
+      print('Failed to insert carpool: $e');
+      return -1;  // Return error code if Firestore insert fails
+    }
   }
 
-  // Insert new ride (passenger requests a ride)
   Future<int> insertRide(Map<String, dynamic> ride) async {
     final db = await database;
-    return await db.insert('rides', ride);
+
+    // Insert ride into SQLite
+    int rideID = await db.insert('rides', ride, conflictAlgorithm: ConflictAlgorithm.replace,);
+
+    // Insert ride into Firestore
+    try {
+      await FirebaseFirestore.instance.collection('rides').add({
+        'carpoolID': ride['carpoolID'],
+        'userID': ride['userID'],
+        'status': ride['status'],
+        'pickupNote': ride['pickupNote'],
+      });
+    } catch (e) {
+      print('Failed to insert ride into Firestore: $e');
+    }
+
+    return rideID;
   }
 
   // Get user by email (used for login and password retrieval)
@@ -203,6 +291,12 @@ class DatabaseHelper {
     );
 
     return true;
+  }
+
+  // Get all carpools from the database
+  Future<List<Map<String, dynamic>>> getAllCarpools() async {
+    final db = await database;
+    return await db.query('carpools');
   }
 
   // Update user password
@@ -311,5 +405,80 @@ class DatabaseHelper {
       );
     }
   }
+
+  // Fetch data from Firestore and overwrite SQLite
+  Future<void> updateSQLiteFromFirestore() async {
+    try {
+      // Fetch all documents from Firestore
+      QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('carpools').get();
+
+      // Convert Firestore documents into a list of maps
+      List<Map<String, dynamic>> allRides = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['firestoreID'] = doc.id; // Optional: Store the Firestore document ID in SQLite
+        return data;
+      }).toList();
+
+      final db = await database;
+
+      // Clear the existing data in the 'carpools' table before inserting new data
+      await db.delete('carpools');
+
+      // Insert the new Firestore data into SQLite
+      for (var ride in allRides) {
+        await db.insert(
+          'carpools',
+          ride,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      print('SQLite updated with Firestore data.');
+    } catch (e) {
+      print('Error updating SQLite from Firestore: $e');
+    }
+  }
+
+  // Fetch active rides from SQLite
+  Future<List<Map<String, dynamic>>> getActiveCarpools({
+    required String fromLocation,
+    required String toLocation,
+    required int seatCount,
+    required bool musicPreference,
+    required bool petFriendly,
+    required bool nonSmoking,
+  }) async {
+    final db = await database;
+
+    // Fetch active carpools from SQLite
+    List<Map<String, dynamic>> allRides = await db.query(
+      'carpools',
+      where: 'status = ?',
+      whereArgs: ['active'],
+    );
+
+    // Apply filtering based on the user's preferences
+    List<Map<String, dynamic>> filteredRides = allRides.where((ride) {
+      bool locationMatch =
+          ride['pickUpPoint'] == fromLocation && ride['dropOffPoint'] == toLocation;
+
+      bool preferenceMatch = true;
+      if (musicPreference) {
+        preferenceMatch &= ride['ridePreference']?.toString().contains('Music') ?? false;
+      }
+      if (petFriendly) {
+        preferenceMatch &= ride['ridePreference']?.toString().contains('Pet') ?? false;
+      }
+      if (nonSmoking) {
+        preferenceMatch &= ride['ridePreference']?.toString().contains('Non-Smoking') ?? false;
+      }
+
+      bool seatAvailable = (ride['availableSeats'] ?? 0) >= seatCount;
+
+      return locationMatch && preferenceMatch && seatAvailable;
+    }).toList();
+
+    return filteredRides;
+  }
+
 
 }

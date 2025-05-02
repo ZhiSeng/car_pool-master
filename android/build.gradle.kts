@@ -1,3 +1,14 @@
+buildscript {
+    repositories {
+        google()  // Ensures the Google repository is included
+        mavenCentral()  // Standard repository for many libraries
+    }
+    dependencies {
+        // Use Kotlin DSL syntax for dependencies
+        classpath("com.google.gms:google-services:4.3.15")  // Firebase services plugin
+    }
+}
+
 allprojects {
     repositories {
         google()
