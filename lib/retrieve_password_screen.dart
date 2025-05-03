@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'database_helper.dart';
+import 'login_screen.dart';
 
 class RetrievePasswordScreen extends StatefulWidget {
   @override
@@ -10,60 +11,59 @@ class _RetrievePasswordScreenState extends State<RetrievePasswordScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController securityAnswerController = TextEditingController();
   final TextEditingController newPasswordController = TextEditingController();
-  final TextEditingController confirmPasswordController = TextEditingController();
 
-  String? fetchedQuestion; // Store the fetched security question
-  bool questionLoaded = false;
+  String? securityQuestion;
+  bool emailChecked = false;
 
-  Future<void> _loadSecurityQuestion() async {
-    String email = emailController.text.trim();
+  Future<void> _checkEmail() async {
+    final email = emailController.text.trim();
+    if (email.isEmpty) {
+      _showMessage("Please enter your email first.");
+      return;
+    }
+
     final user = await DatabaseHelper.instance.getUser(email);
-
     if (user != null) {
       setState(() {
-        fetchedQuestion = user['security_question'];
-        questionLoaded = true;
+        securityQuestion = user['security_question'];
+        emailChecked = true;
       });
     } else {
-      _showMessage("User not found!");
+      _showMessage("Email not found.");
     }
   }
 
-  void _verifyAnswerAndResetPassword() async {
+  void _resetPassword() async {
     String email = emailController.text.trim();
     String answer = securityAnswerController.text.trim();
     String newPassword = newPasswordController.text.trim();
-    String confirmPassword = confirmPasswordController.text.trim();
+
+    if (email.isEmpty || answer.isEmpty || newPassword.isEmpty) {
+      _showMessage("Please fill in all fields.");
+      return;
+    }
 
     final user = await DatabaseHelper.instance.getUser(email);
-
-    if (user == null) {
-      _showMessage("User not found!");
-      return;
+    if (user != null &&
+        user['security_answer'].toString().toLowerCase() == answer.toLowerCase()) {
+      await DatabaseHelper.instance.updateUserPassword(email, newPassword);
+      _showMessage("Password updated successfully!", isSuccess: true);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => LoginScreen()),
+      );
+    } else {
+      _showMessage("Incorrect answer or email not found.");
     }
-
-    if (user['security_answer'].toString() != answer) {
-      _showMessage("Incorrect answer. Try again!");
-      return;
-    }
-
-    if (newPassword.isEmpty || confirmPassword.isEmpty) {
-      _showMessage("Please enter your new password!");
-      return;
-    }
-
-    if (newPassword != confirmPassword) {
-      _showMessage("Passwords do not match!");
-      return;
-    }
-
-    await DatabaseHelper.instance.updateUserPassword(email, newPassword);
-    _showMessage("Password updated successfully!");
-    Navigator.pop(context);
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  void _showMessage(String message, {bool isSuccess = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isSuccess ? Colors.green : Colors.red,
+      ),
+    );
   }
 
   @override
@@ -74,27 +74,41 @@ class _RetrievePasswordScreenState extends State<RetrievePasswordScreen> {
         padding: EdgeInsets.all(16.0),
         child: Column(
           children: [
-            TextField(controller: emailController, decoration: InputDecoration(labelText: 'Email')),
+            TextField(
+              controller: emailController,
+              decoration: InputDecoration(labelText: 'Email'),
+              onSubmitted: (_) => _checkEmail(),
+            ),
+            SizedBox(height: 10),
             ElevatedButton(
-              onPressed: _loadSecurityQuestion,
+              onPressed: _checkEmail,
               child: Text("Get Security Question"),
             ),
-            if (questionLoaded && fetchedQuestion != null) ...[
-              SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text("Question: $fetchedQuestion", style: TextStyle(fontWeight: FontWeight.bold)),
+            if (securityQuestion != null) ...[
+              SizedBox(height: 20),
+              Text(
+                "Security Question:",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(securityQuestion!),
+              TextField(
+                controller: securityAnswerController,
+                decoration: InputDecoration(labelText: 'Your Answer'),
+              ),
+              TextField(
+                controller: newPasswordController,
+                decoration: InputDecoration(labelText: 'New Password'),
+                obscureText: true,
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _resetPassword,
+                child: Text('Reset Password'),
               ),
             ],
-            TextField(controller: securityAnswerController, decoration: InputDecoration(labelText: 'Security Answer')),
-            TextField(controller: newPasswordController, decoration: InputDecoration(labelText: 'New Password'), obscureText: true),
-            TextField(controller: confirmPasswordController, decoration: InputDecoration(labelText: 'Confirm Password'), obscureText: true),
-            ElevatedButton(onPressed: _verifyAnswerAndResetPassword, child: Text('Reset Password')),
           ],
         ),
       ),
     );
   }
 }
-
-

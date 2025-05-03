@@ -39,21 +39,27 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return;
     }
 
-    int userID = await DatabaseHelper.instance.insertUser({
-      'username': username,
-      'email': email,
-      'password': password,
-      'security_question': selectedQuestion,
-      'security_answer': securityAnswer,
-    });
+    try {
+      int userID = await DatabaseHelper.instance.insertUser({
+        'username': username,
+        'email': email,
+        'password': password,
+        'security_question': selectedQuestion,
+        'security_answer': securityAnswer,
+      });
 
-    if (userID > 0) {
-      _showMessage("Registration successful!", isSuccess: true);
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen()));
-    } else {
-      _showMessage("Registration failed. Try again.");
+      if (userID > 0) {
+        _showMessage("Registration successful!", isSuccess: true);
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen()));
+      } else {
+        _showMessage("Registration failed. Try again.");
+      }
+    } catch (e) {
+      print('Registration error: $e');
+      _showMessage("Something went wrong. Please try again.");
     }
   }
+
 
   // Function to display a message
   void _showMessage(String message, {bool isSuccess = false}) {

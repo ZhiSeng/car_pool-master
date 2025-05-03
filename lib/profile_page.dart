@@ -12,24 +12,17 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  bool isEditing = false;
-  bool isPasswordVisible = false;
+  final _formKey = GlobalKey<FormState>();
+  TextEditingController usernameController = TextEditingController();
+  TextEditingController passwordController = TextEditingController();
+  TextEditingController confirmPasswordController = TextEditingController();
+  TextEditingController securityAnswerController = TextEditingController();
 
-  final TextEditingController usernameController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController securityAnswerController = TextEditingController();
-
-  String selectedQuestion = '';
-  int ecoPoints = 0;
   double rating = 0.0;
   int reviewCount = 0;
+  int ecoPoints = 0;
 
-  final List<String> securityQuestions = [
-    'What is your pet name?',
-    'What is your mother\'s maiden name?',
-    'What was your first school?'
-  ];
+  String selectedQuestion = 'What is your pet name?';
 
   @override
   void initState() {
@@ -38,167 +31,134 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _loadUserData() async {
+    await DatabaseHelper.instance.syncUserFromFirestore(widget.email);
     final user = await DatabaseHelper.instance.getUser(widget.email);
+
     if (user != null) {
       setState(() {
-        usernameController.text = user['username'];
-        passwordController.text = user['password'];
-        emailController.text = user['email'];
-        selectedQuestion = user['security_question'];
-        securityAnswerController.text = user['security_answer'];
-        ecoPoints = user['ecoPoints'] ?? 0;
-        rating = user['rating']?.toDouble() ?? 0.0;
+        usernameController.text = user['username'] ?? '';
+        passwordController.text = user['password'] ?? '';
+        securityAnswerController.text = user['security_answer'] ?? '';
+        selectedQuestion = user['security_question'] ?? selectedQuestion;
+
+        rating = (user['rating'] ?? 0.0).toDouble();
         reviewCount = user['reviewCount'] ?? 0;
+        ecoPoints = user['ecoPoints'] ?? 0;
       });
     }
   }
 
-  Future<void> _saveUserData() async {
-    await DatabaseHelper.instance.updateUserData(
-      emailController.text.trim(),
-      {
+  void _saveProfile() async {
+    if (_formKey.currentState!.validate()) {
+      String password = passwordController.text.trim();
+      String confirmPassword = confirmPasswordController.text.trim();
+
+      if (password != confirmPassword) {
+        _showMessage("Passwords do not match!");
+        return;
+      }
+
+      await DatabaseHelper.instance.updateUserData(widget.email, {
         'username': usernameController.text.trim(),
-        'email': emailController.text.trim(),
-        'password': passwordController.text.trim(),
+        'password': password,
         'security_question': selectedQuestion,
         'security_answer': securityAnswerController.text.trim(),
-      },
-    );
-    setState(() {
-      isEditing = false;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Profile updated')));
+      });
+
+      _showMessage("Profile updated successfully!", isSuccess: true);
+    }
+  }
+
+  void _showMessage(String message, {bool isSuccess = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: isSuccess ? Colors.green : Colors.red,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Profile Page'),
+        title: Text("My Profile"),
         actions: [
           IconButton(
-            icon: Icon(isEditing ? Icons.save : Icons.edit),
+            icon: Icon(Icons.logout),
             onPressed: () {
-              if (isEditing) {
-                _saveUserData();
-              } else {
-                setState(() {
-                  isEditing = true;
-                });
-              }
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => LoginScreen()),
+                    (route) => false,
+              );
             },
-          ),
+          )
         ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            _buildInfoRow(Icons.person, 'Username:', TextField(
-              controller: usernameController,
-              enabled: isEditing,
-              decoration: InputDecoration(border: InputBorder.none),
-            )),
-            _buildInfoRow(Icons.lock, 'Password:', Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: passwordController,
-                    enabled: isEditing,
-                    obscureText: !isPasswordVisible,
-                    decoration: InputDecoration(border: InputBorder.none),
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(
-                    isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                  ),
-                  onPressed: isEditing
-                      ? () {
-                    setState(() {
-                      isPasswordVisible = !isPasswordVisible;
-                    });
-                  }
-                      : null,
-                ),
-              ],
-            )),
-            _buildInfoRow(Icons.email, 'Email:', TextField(
-              controller: emailController,
-              enabled: isEditing,
-              decoration: InputDecoration(border: InputBorder.none),
-            )),
-            _buildInfoRow(Icons.help_outline, 'Secret Question:', isEditing
-                ? DropdownButton<String>(
-              isExpanded: true,
-              value: selectedQuestion,
-              onChanged: (value) {
-                setState(() {
-                  selectedQuestion = value!;
-                });
-              },
-              items: securityQuestions.map((question) {
-                return DropdownMenuItem(
-                  value: question,
-                  child: Text(question),
-                );
-              }).toList(),
-            )
-                : Text(selectedQuestion)),
-            _buildInfoRow(Icons.edit, 'Secret Answer:', TextField(
-              controller: securityAnswerController,
-              enabled: isEditing,
-              decoration: InputDecoration(border: InputBorder.none),
-            )),
-
-            Divider(thickness: 1),
-
-            _buildInfoRow(Icons.eco, 'Eco Point(s):', Text('$ecoPoints')),
-            _buildInfoRow(Icons.star, 'Rate(s):', Row(
-              children: List.generate(5, (index) {
-                return Icon(
-                  index < rating.round() ? Icons.star : Icons.star_border,
-                  color: Colors.orange,
-                );
-              }),
-            )),
-            _buildInfoRow(Icons.comment, 'Review(s):', Text('$reviewCount')),
-
-            SizedBox(height: 30),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => LoginScreen()),
-                      (route) => false,
-                );
-              },
-              icon: Icon(Icons.logout),
-              label: Text('Logout'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade400,
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                textStyle: TextStyle(fontSize: 16),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              Text("Editable Details", style: TextStyle(fontWeight: FontWeight.bold)),
+              TextFormField(
+                controller: usernameController,
+                decoration: InputDecoration(labelText: "Username"),
+                validator: (value) => value!.isEmpty ? "Enter username" : null,
               ),
-            ),
-          ],
+              TextFormField(
+                controller: passwordController,
+                decoration: InputDecoration(labelText: "Password"),
+                obscureText: true,
+                validator: (value) => value!.isEmpty ? "Enter password" : null,
+              ),
+              TextFormField(
+                controller: confirmPasswordController,
+                decoration: InputDecoration(labelText: "Confirm Password"),
+                obscureText: true,
+                validator: (value) => value!.isEmpty ? "Confirm your password" : null,
+              ),
+              DropdownButtonFormField<String>(
+                value: selectedQuestion,
+                decoration: InputDecoration(labelText: 'Security Question'),
+                items: [
+                  'What is your pet name?',
+                  'What is your mother\'s maiden name?',
+                  'What was your first school?'
+                ].map((q) => DropdownMenuItem(value: q, child: Text(q))).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    selectedQuestion = value!;
+                  });
+                },
+              ),
+              TextFormField(
+                controller: securityAnswerController,
+                decoration: InputDecoration(labelText: "Security Answer"),
+                validator: (value) => value!.isEmpty ? "Enter answer" : null,
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _saveProfile,
+                child: Text("Save Changes"),
+              ),
+              Divider(height: 40),
+              Text("Read-Only Info", style: TextStyle(fontWeight: FontWeight.bold)),
+              ListTile(
+                title: Text("Rating"),
+                trailing: Text(rating.toStringAsFixed(1)),
+              ),
+              ListTile(
+                title: Text("Review Count"),
+                trailing: Text(reviewCount.toString()),
+              ),
+              ListTile(
+                title: Text("Eco Points"),
+                trailing: Text(ecoPoints.toString()),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String label, Widget content) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 24),
-          SizedBox(width: 8),
-          Container(width: 120, child: Text(label, style: TextStyle(fontWeight: FontWeight.bold))),
-          Expanded(child: content),
-        ],
       ),
     );
   }
