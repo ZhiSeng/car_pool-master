@@ -36,7 +36,10 @@ class DatabaseHelper {
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         security_question TEXT NOT NULL,
-        security_answer TEXT NOT NULL
+        security_answer TEXT NOT NULL,
+        rating REAL,
+        reviewCount INTEGER,
+        ecoPoints INTEGER
       )
     ''');
 
@@ -97,33 +100,123 @@ class DatabaseHelper {
     }
   }
 
-  // Insert a new user
+  // Insert into Firestore then sync to SQLite
   Future<int> insertUser(Map<String, dynamic> user) async {
     final db = await database;
 
-    // Insert user into SQLite
-    int userID = await db.insert(
-      'users',
-      user,
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    // Set default values
+    user['rating'] = user['rating'] ?? 0.0;
+    user['reviewCount'] = user['reviewCount'] ?? 0;
+    user['ecoPoints'] = user['ecoPoints'] ?? 0;
 
-    // Insert into Firestore
     try {
-      await FirebaseFirestore.instance.collection('users').add({
-        'userID': userID, // SQLite-generated ID
+      // Insert into Firestore
+      DocumentReference docRef = await FirebaseFirestore.instance.collection('users').add({
         'username': user['username'],
         'email': user['email'],
-        'password': user['password'], // NOTE: avoid storing plain passwords in production
+        'password': user['password'],
         'security_question': user['security_question'],
         'security_answer': user['security_answer'],
+        'rating': user['rating'],
+        'reviewCount': user['reviewCount'],
+        'ecoPoints': user['ecoPoints'],
       });
+
+      // ✅ Prepare data for SQLite (exclude 'firestoreID')
+      Map<String, dynamic> sqliteUser = Map.from(user);
+      sqliteUser.remove('firestoreID');
+
+      // Insert into SQLite
+      return await db.insert('users', sqliteUser, conflictAlgorithm: ConflictAlgorithm.replace);
     } catch (e) {
-      print('Failed to insert user into Firestore: $e');
+      print('Insert user failed: $e');
+      return -1;
+    }
+  }
+
+
+
+  // Sync latest user from Firestore into SQLite
+  Future<void> syncUserFromFirestore(String email) async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('email', isEqualTo: email)
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isNotEmpty) {
+      final userData = snapshot.docs.first.data();
+
+      // Provide fallback values to avoid null in SQLite
+      userData['rating'] ??= 0.0;
+      userData['reviewCount'] ??= 0;
+      userData['ecoPoints'] ??= 0;
+
+      final db = await database;
+      await db.insert('users', userData, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+  }
+
+
+  Future<Map<String, dynamic>?> getUser(String email) async {
+    // Try SQLite first
+    final db = await database;
+    List<Map<String, dynamic>> local = await db.query(
+      'users',
+      where: 'email = ?',
+      whereArgs: [email],
+    );
+
+    if (local.isNotEmpty) return local.first;
+
+    // If not found locally, pull from Firestore and sync
+    await syncUserFromFirestore(email);
+    final fallback = await db.query(
+      'users',
+      where: 'email = ?',
+      whereArgs: [email],
+    );
+    return fallback.isNotEmpty ? fallback.first : null;
+  }
+
+  Future<void> updateUserData(String email, Map<String, dynamic> updates) async {
+    final db = await database;
+
+    // Update in Firestore
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('email', isEqualTo: email)
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isNotEmpty) {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(snapshot.docs.first.id)
+          .update(updates);
     }
 
-    return userID;
+    // Then update in SQLite
+    await db.update('users', updates, where: 'email = ?', whereArgs: [email]);
   }
+
+  Future<void> updateUserPassword(String email, String newPassword) async {
+    await updateUserData(email, {'password': newPassword});
+  }
+
+  // Additional helper for syncing all users (e.g., at app launch)
+  Future<void> syncAllUsersFromFirestore() async {
+    final snapshot = await FirebaseFirestore.instance.collection('users').get();
+    final db = await database;
+
+    for (var doc in snapshot.docs) {
+      final user = doc.data();
+      await db.insert('users', user, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+  }
+
+
+
 
   // Update the carpool status (completed or canceled)
   Future<void> updateCarpoolStatus(int carpoolID, String status) async {
@@ -201,17 +294,6 @@ class DatabaseHelper {
     }
 
     return rideID;
-  }
-
-  // Get user by email (used for login and password retrieval)
-  Future<Map<String, dynamic>?> getUser(String email) async {
-    final db = await database;
-    List<Map<String, dynamic>> results = await db.query(
-      'users',
-      where: 'email = ?',
-      whereArgs: [email],
-    );
-    return results.isNotEmpty ? results.first : null;
   }
 
   // Get all rides by passenger
@@ -299,16 +381,6 @@ class DatabaseHelper {
     return await db.query('carpools');
   }
 
-  // Update user password
-  Future<void> updateUserPassword(String email, String newPassword) async {
-    final db = await database;
-    await db.update(
-      'users',
-      {'password': newPassword},
-      where: 'email = ?',
-      whereArgs: [email],
-    );
-  }
 
   // Update ride status (e.g., to confirmed or canceled)
   Future<void> updateRideStatus(int rideID, String status) async {
@@ -353,15 +425,6 @@ class DatabaseHelper {
     );
   }
 
-  Future<void> updateUserData(String originalEmail, Map<String, dynamic> updates) async {
-    final db = await database;
-    await db.update(
-      'users',
-      updates,
-      where: 'email = ?',
-      whereArgs: [originalEmail],
-    );
-  }
 
   // Get list of drivers from completed rides for rating
   Future<List<Map<String, dynamic>>> getCompletedDriversForRating(int userID) async {
