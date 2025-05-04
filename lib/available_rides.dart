@@ -92,9 +92,9 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
       ),
       builder: (BuildContext context) {
         return DraggableScrollableSheet(
-          initialChildSize: 0.55,
-          minChildSize: 0.3,
-          maxChildSize: 0.8,
+          initialChildSize: 0.567,
+          minChildSize: 0.567,
+          maxChildSize: 0.567,
           expand: false,
           builder: (context, scrollController) {
             return Column(
@@ -202,12 +202,12 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                         SizedBox(height: 10),
                         Text(
                           'Date & Time: ${_formatDateTime(carpool['date'], carpool['time'])}',
-                          style: TextStyle(fontSize: 16),
+                          style: TextStyle(fontSize: 14),
                         ),
-                        SizedBox(height: 6),
+                        SizedBox(height: 4),
                         Text(
                           'Available Seats: ${carpool['availableSeats']}',
-                          style: TextStyle(fontSize: 16),
+                          style: TextStyle(fontSize: 14),
                         ),
                         if (carpool['ridePreference'] != null &&
                             carpool['ridePreference'].toString().isNotEmpty)
@@ -232,9 +232,9 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                     children: [
                       Text(
                         'Pickup Note',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                       ),
-                      SizedBox(height: 8),
+                      SizedBox(height: 4),
                       TextField(
                         controller: pickupNoteController,
                         keyboardType: TextInputType.text,

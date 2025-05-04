@@ -92,6 +92,7 @@ class _WaitingForConfirmationPageState
               Text(
                 'Your ride request has expired.',
                 style: TextStyle(fontSize: 18, color: Colors.red, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
               )
             else if (isCancelled)
               Container(
@@ -108,11 +109,13 @@ class _WaitingForConfirmationPageState
                   Text(
                     'Your ride request is pending confirmation.',
                     style: TextStyle(fontSize: 18),
+                    textAlign: TextAlign.center,
                   ),
                   SizedBox(height: 20),
                   Text(
                     'Please wait while drivers process your request.',
                     style: TextStyle(fontSize: 16),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
@@ -123,7 +126,9 @@ class _WaitingForConfirmationPageState
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blueAccent,
                 ),
-                child: Text('Back'),
+                child: Text('Back',
+                  style: TextStyle(color: Colors.white),
+                ),
               )
             else
               ElevatedButton(
@@ -131,7 +136,9 @@ class _WaitingForConfirmationPageState
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.redAccent,
                 ),
-                child: Text('Cancel Ride'),
+                child: Text('Cancel Ride',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
           ],
         ),
