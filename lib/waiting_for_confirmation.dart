@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'database_helper.dart';
+import 'dart:async';
 
 class WaitingForConfirmationPage extends StatefulWidget {
+  final int rideID;
   final int carpoolID;
   final int userID;
 
   const WaitingForConfirmationPage({
+    required this.rideID,
     required this.carpoolID,
     required this.userID,
   });
@@ -17,15 +20,35 @@ class WaitingForConfirmationPage extends StatefulWidget {
 
 class _WaitingForConfirmationPageState
     extends State<WaitingForConfirmationPage> {
+  bool isRejected = false;
   bool isConfirmed = false;
   bool isExpired = false;
   bool isCancelled = false;
   late DateTime requestTime;
+  late Timer _statusCheckTimer;
 
   @override
   void initState() {
     super.initState();
     requestTime = DateTime.now();
+    _startStatusCheck();
+  }
+
+  @override
+  void dispose() {
+    // Cancel the timer when the widget is disposed
+    _statusCheckTimer.cancel();
+    super.dispose();
+  }
+
+  void _startStatusCheck() {
+    // Start a periodic check every 5 seconds
+    _statusCheckTimer = Timer.periodic(Duration(seconds: 5), (timer) async {
+      // Check the current status from the database
+      _checkRideStatus();
+    });
+
+    // Also, start expiration timer to handle ride expiration logic
     _startExpirationTimer();
   }
 
@@ -44,6 +67,31 @@ class _WaitingForConfirmationPageState
           SnackBar(content: Text('Failed to update expiration in database.')),
         );
       }
+    }
+  }
+
+  void _checkRideStatus() async {
+    await DatabaseHelper.instance.syncRidesFromFirestoreToSQLite();
+    // Get the current status from the database
+    String status = await DatabaseHelper.instance.checkRideStatus(widget.rideID, widget.carpoolID, widget.userID);
+
+    setState(() {
+      // Reset the flags before setting the new status
+      isConfirmed = false;
+      isRejected = false;
+      isExpired = false;
+
+      if (status == 'confirmed') {
+        isConfirmed = true;
+      } else if (status == 'rejected') {
+        isRejected = true;
+      } else if (status == 'expired') {
+        isExpired = true;
+      }
+    });
+
+    if (isConfirmed || isRejected || isExpired) {
+      _statusCheckTimer.cancel();  // Stop checking once confirmed, rejected, or expired
     }
   }
 
@@ -85,6 +133,10 @@ class _WaitingForConfirmationPageState
           children: [
             if (isExpired || isCancelled)
               Icon(Icons.error, color: Colors.redAccent, size: 80)
+            else if (isConfirmed)
+              Icon(Icons.check_circle, color: Colors.green, size: 80)
+              else if (isRejected)
+              Icon(Icons.cancel, color: Colors.red, size: 80)
             else
               CircularProgressIndicator(),
             SizedBox(height: 20),
@@ -102,8 +154,21 @@ class _WaitingForConfirmationPageState
                 style: TextStyle(fontSize: 18, color: Colors.red, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
                 ),
-              )
-    else
+              )else if (isConfirmed)
+              // Show confirmed message
+                Text(
+                  'Your ride request has been confirmed!',
+                  style: TextStyle(fontSize: 18, color: Colors.green, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                )
+              else if (isRejected)
+                // Show rejected status
+                  Text(
+                    'Your ride request has been rejected.',
+                    style: TextStyle(fontSize: 18, color: Colors.red, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  )
+              else
               Column(
                 children: [
                   Text(
@@ -120,7 +185,7 @@ class _WaitingForConfirmationPageState
                 ],
               ),
             SizedBox(height: 30),
-            if (isExpired || isCancelled)
+            if (isExpired || isCancelled || isConfirmed || isRejected)
               ElevatedButton(
                 onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'database_helper.dart';  // Ensure correct import for your DatabaseHelper
+import 'driver_confirm_ride.dart';
 
 class RegisteredCarpoolPage extends StatefulWidget {
   const RegisteredCarpoolPage({Key? key}) : super(key: key);
@@ -77,6 +78,17 @@ class _RegisteredCarpoolPageState extends State<RegisteredCarpoolPage> {
     }
   }
 
+  // Navigate to Driver Confirm Ride Page
+  void _openDriverConfirmRidePage(int carpoolID) {
+    // Navigate to the page where the driver can confirm rides
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DriverConfirmRide(carpoolID: carpoolID),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -95,6 +107,14 @@ class _RegisteredCarpoolPageState extends State<RegisteredCarpoolPage> {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Search button (opens Driver Confirm Ride Page)
+                IconButton(
+                  icon: Icon(Icons.search),
+                  onPressed: () {
+                    // Open the Driver Confirm Ride Page for the current carpool
+                    _openDriverConfirmRidePage(carpool['id']);
+                  },
+                ),
                 IconButton(
                   icon: Icon(Icons.check),
                   onPressed: carpool['status'] == 'active'

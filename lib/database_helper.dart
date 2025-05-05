@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -80,7 +81,12 @@ class DatabaseHelper {
         carpoolID INTEGER NOT NULL,
         userID INTEGER NOT NULL, -- passenger
         status TEXT DEFAULT 'requested',  -- requested, confirmed, completed, canceled
+        seat INTEGER NOT NULL,
+        musicPreference INTEGER DEFAULT 0,
+        petFriendly INTEGER DEFAULT 0,
+        nonSmoking INTEGER DEFAULT 0,
         pickupNote TEXT,
+        firestoreID TEXT,
         FOREIGN KEY(carpoolID) REFERENCES carpools(id),
         FOREIGN KEY(userID) REFERENCES users(userID)
       )
@@ -111,38 +117,43 @@ class DatabaseHelper {
 
     try {
       // Insert into Firestore
-      DocumentReference docRef = await FirebaseFirestore.instance.collection('users').add({
-        'username': user['username'],
-        'email': user['email'],
-        'password': user['password'],
-        'security_question': user['security_question'],
-        'security_answer': user['security_answer'],
-        'rating': user['rating'],
-        'reviewCount': user['reviewCount'],
-        'ecoPoints': user['ecoPoints'],
-      });
+      DocumentReference docRef = await FirebaseFirestore.instance
+          .collection('users')
+          .add({
+            'username': user['username'],
+            'email': user['email'],
+            'password': user['password'],
+            'security_question': user['security_question'],
+            'security_answer': user['security_answer'],
+            'rating': user['rating'],
+            'reviewCount': user['reviewCount'],
+            'ecoPoints': user['ecoPoints'],
+          });
 
       // ✅ Prepare data for SQLite (exclude 'firestoreID')
       Map<String, dynamic> sqliteUser = Map.from(user);
       sqliteUser.remove('firestoreID');
 
       // Insert into SQLite
-      return await db.insert('users', sqliteUser, conflictAlgorithm: ConflictAlgorithm.replace);
+      return await db.insert(
+        'users',
+        sqliteUser,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     } catch (e) {
       print('Insert user failed: $e');
       return -1;
     }
   }
 
-
-
   // Sync latest user from Firestore into SQLite
   Future<void> syncUserFromFirestore(String email) async {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .where('email', isEqualTo: email)
-        .limit(1)
-        .get();
+    final snapshot =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .where('email', isEqualTo: email)
+            .limit(1)
+            .get();
 
     if (snapshot.docs.isNotEmpty) {
       final userData = snapshot.docs.first.data();
@@ -153,10 +164,13 @@ class DatabaseHelper {
       userData['ecoPoints'] ??= 0;
 
       final db = await database;
-      await db.insert('users', userData, conflictAlgorithm: ConflictAlgorithm.replace);
+      await db.insert(
+        'users',
+        userData,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     }
   }
-
 
   Future<Map<String, dynamic>?> getUser(String email) async {
     // Try SQLite first
@@ -179,15 +193,19 @@ class DatabaseHelper {
     return fallback.isNotEmpty ? fallback.first : null;
   }
 
-  Future<void> updateUserData(String email, Map<String, dynamic> updates) async {
+  Future<void> updateUserData(
+    String email,
+    Map<String, dynamic> updates,
+  ) async {
     final db = await database;
 
     // Update in Firestore
-    final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .where('email', isEqualTo: email)
-        .limit(1)
-        .get();
+    final snapshot =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .where('email', isEqualTo: email)
+            .limit(1)
+            .get();
 
     if (snapshot.docs.isNotEmpty) {
       await FirebaseFirestore.instance
@@ -211,12 +229,13 @@ class DatabaseHelper {
 
     for (var doc in snapshot.docs) {
       final user = doc.data();
-      await db.insert('users', user, conflictAlgorithm: ConflictAlgorithm.replace);
+      await db.insert(
+        'users',
+        user,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     }
   }
-
-
-
 
   // Update the carpool status (completed or canceled)
   Future<void> updateCarpoolStatus(int carpoolID, String status) async {
@@ -229,23 +248,25 @@ class DatabaseHelper {
     );
   }
 
-// Insert a new carpool into both SQLite and Firestore
+  // Insert a new carpool into both SQLite and Firestore
   Future<int> insertCarpool(Map<String, dynamic> carpool) async {
     final db = await database;
 
     // Insert into Firestore first, Firestore automatically generates an ID
     try {
-      DocumentReference docRef = await FirebaseFirestore.instance.collection('carpools').add({
-        'userID': carpool['userID'],
-        'pickUpPoint': carpool['pickUpPoint'],
-        'dropOffPoint': carpool['dropOffPoint'],
-        'date': carpool['date'],
-        'time': carpool['time'],
-        'availableSeats': carpool['availableSeats'],
-        'ridePreference': carpool['ridePreference'],
-        'status': carpool['status'],
-        'earnings': carpool['earnings'],
-      });
+      DocumentReference docRef = await FirebaseFirestore.instance
+          .collection('carpools')
+          .add({
+            'userID': carpool['userID'],
+            'pickUpPoint': carpool['pickUpPoint'],
+            'dropOffPoint': carpool['dropOffPoint'],
+            'date': carpool['date'],
+            'time': carpool['time'],
+            'availableSeats': carpool['availableSeats'],
+            'ridePreference': carpool['ridePreference'],
+            'status': carpool['status'],
+            'earnings': carpool['earnings'],
+          });
 
       // After successfully adding to Firestore, insert the rest into SQLite
       Map<String, dynamic> carpoolData = {
@@ -268,32 +289,57 @@ class DatabaseHelper {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
 
-      return carpoolID;  // Return SQLite ID for future references
+      return carpoolID; // Return SQLite ID for future references
     } catch (e) {
       print('Failed to insert carpool: $e');
-      return -1;  // Return error code if Firestore insert fails
+      return -1; // Return error code if Firestore insert fails
     }
   }
 
+  // Insert a new ride into both Firestore and SQLite
   Future<int> insertRide(Map<String, dynamic> ride) async {
     final db = await database;
 
-    // Insert ride into SQLite
-    int rideID = await db.insert('rides', ride, conflictAlgorithm: ConflictAlgorithm.replace,);
-
-    // Insert ride into Firestore
+    // Insert ride into Firestore first
     try {
-      await FirebaseFirestore.instance.collection('rides').add({
+      DocumentReference docRef = await FirebaseFirestore.instance
+          .collection('rides')
+          .add({
+            'carpoolID': ride['carpoolID'],
+            'userID': ride['userID'],
+            'status': ride['status'],
+            'pickupNote': ride['pickupNote'],
+            'seat': ride['seat'],
+            'musicPreference': ride['musicPreference'],
+            'petFriendly': ride['petFriendly'],
+            'nonSmoking': ride['nonSmoking'],
+          });
+
+      // After successfully adding to Firestore, insert the rest into SQLite with the firestoreID
+      Map<String, dynamic> rideData = {
         'carpoolID': ride['carpoolID'],
         'userID': ride['userID'],
         'status': ride['status'],
         'pickupNote': ride['pickupNote'],
-      });
-    } catch (e) {
-      print('Failed to insert ride into Firestore: $e');
-    }
+        'firestoreID': docRef.id, // Store Firestore ID for future reference
+        'seat': ride['seat'],
+        'musicPreference': ride['musicPreference'],
+        'petFriendly': ride['petFriendly'],
+        'nonSmoking': ride['nonSmoking'],
+      };
 
-    return rideID;
+      // Insert into SQLite
+      int rideID = await db.insert(
+        'rides',
+        rideData,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      return rideID; // Return SQLite ID for future references
+    } catch (e) {
+      print('Failed to insert ride: $e');
+      return -1; // Return error code if Firestore insert fails
+    }
   }
 
   // Get all rides by passenger
@@ -303,7 +349,9 @@ class DatabaseHelper {
   }
 
   // Get confirmed passengers for a carpool
-  Future<List<Map<String, dynamic>>> getConfirmedRidesForCarpool(int carpoolID) async {
+  Future<List<Map<String, dynamic>>> getConfirmedRidesForCarpool(
+    int carpoolID,
+  ) async {
     final db = await database;
     return await db.query(
       'rides',
@@ -312,14 +360,18 @@ class DatabaseHelper {
     );
   }
 
-  Future<String> requestRide(int carpoolID, int userID, {String pickupNote = ''}) async {
+  Future<String> requestRide(
+    int carpoolID,
+    int userID, {
+    String pickupNote = '',
+  }) async {
     final db = await database;
     try {
       await db.insert('rides', {
         'carpoolID': carpoolID,
         'userID': userID,
         'pickupNote': pickupNote,
-        'status': 'Requested',  // <-- Not Confirmed!
+        'status': 'requested', // <-- Not Confirmed!
       });
       return 'Ride requested successfully!';
     } catch (e) {
@@ -335,7 +387,7 @@ class DatabaseHelper {
     final existing = await db.query(
       'rides',
       where: 'carpoolID = ? AND userID = ? AND status = ?',
-      whereArgs: [carpoolID, userID, 'Requested'],
+      whereArgs: [carpoolID, userID, 'requested'],
     );
 
     if (existing.isEmpty) return false; // No confirmed ride found
@@ -347,6 +399,30 @@ class DatabaseHelper {
       where: 'carpoolID = ? AND userID = ?',
       whereArgs: [carpoolID, userID],
     );
+
+    // Fetch the Firestore ID for the current ride
+    final firestoreID = existing.first['firestoreID'];
+
+    // If a Firestore ID is found, update the ride status to 'canceled' in Firestore
+    if (firestoreID != null) {
+      try {
+        // Update Firestore document with the new status
+        await FirebaseFirestore.instance
+            .collection('rides')
+            .doc(
+              firestoreID as String?,
+            ) // Access the ride document by Firestore ID
+            .update({'status': 'canceled'});
+
+        print('Updated Firestore for ride with Firestore ID: $firestoreID');
+      } catch (e) {
+        print('Error updating Firestore: $e');
+        return false;
+      }
+    } else {
+      print('No Firestore ID found for the ride');
+      return false;
+    }
 
     return true;
   }
@@ -381,11 +457,15 @@ class DatabaseHelper {
     return await db.query('carpools');
   }
 
-
   // Update ride status (e.g., to confirmed or canceled)
   Future<void> updateRideStatus(int rideID, String status) async {
     final db = await database;
-    await db.update('rides', {'status': status}, where: 'rideID = ?', whereArgs: [rideID]);
+    await db.update(
+      'rides',
+      {'status': status},
+      where: 'rideID = ?',
+      whereArgs: [rideID],
+    );
   }
 
   // Fetch all completed or canceled carpools for the user in carpool history
@@ -393,9 +473,11 @@ class DatabaseHelper {
     final db = await database;
     return await db.query(
       'carpool_history',
-      where: 'userID = ? AND (status = ? OR status = ?)',  // Completed or Canceled
+      where: 'userID = ? AND (status = ? OR status = ?)',
+      // Completed or Canceled
       whereArgs: [userID, 'completed', 'canceled'],
-      orderBy: 'status DESC',  // Order by status (completed first, then canceled)
+      orderBy:
+          'status DESC', // Order by status (completed first, then canceled)
     );
   }
 
@@ -411,35 +493,40 @@ class DatabaseHelper {
   }
 
   // Insert carpool history (either completed or canceled)
-  Future<void> addCarpoolHistory(int carpoolID, int userID, String status, double earnings) async {
+  Future<void> addCarpoolHistory(
+    int carpoolID,
+    int userID,
+    String status,
+    double earnings,
+  ) async {
     final db = await database;
-    await db.insert(
-      'carpool_history',
-      {
-        'carpoolID': carpoolID,
-        'userID': userID,
-        'status': status,
-        'earnings': earnings,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('carpool_history', {
+      'carpoolID': carpoolID,
+      'userID': userID,
+      'status': status,
+      'earnings': earnings,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-
   // Get list of drivers from completed rides for rating
-  Future<List<Map<String, dynamic>>> getCompletedDriversForRating(int userID) async {
+  Future<List<Map<String, dynamic>>> getCompletedDriversForRating(
+    int userID,
+  ) async {
     final db = await database;
 
-    return await db.rawQuery('''
+    return await db.rawQuery(
+      '''
     SELECT ch.id as historyID, cp.id as carpoolID, cp.userID as driverID, u.username as driverName
     FROM carpool_history ch
     JOIN carpools cp ON ch.carpoolID = cp.id
     JOIN users u ON cp.userID = u.userID
     WHERE ch.userID = ? AND ch.status = 'completed'
-  ''', [userID]);
+  ''',
+      [userID],
+    );
   }
 
-// Submit or update driver's average rating and review count
+  // Submit or update driver's average rating and review count
   Future<void> submitDriverRating(int driverID, double newRating) async {
     final db = await database;
 
@@ -452,17 +539,17 @@ class DatabaseHelper {
 
     if (result.isNotEmpty) {
       final current = result.first;
-      double oldRating = current['rating'] != null ? current['rating'] as double : 0.0;
-      int reviewCount = current['reviewCount'] != null ? current['reviewCount'] as int : 0;
+      double oldRating =
+          current['rating'] != null ? current['rating'] as double : 0.0;
+      int reviewCount =
+          current['reviewCount'] != null ? current['reviewCount'] as int : 0;
 
-      double updatedRating = ((oldRating * reviewCount) + newRating) / (reviewCount + 1);
+      double updatedRating =
+          ((oldRating * reviewCount) + newRating) / (reviewCount + 1);
 
       await db.update(
         'users',
-        {
-          'rating': updatedRating,
-          'reviewCount': reviewCount + 1,
-        },
+        {'rating': updatedRating, 'reviewCount': reviewCount + 1},
         where: 'userID = ?',
         whereArgs: [driverID],
       );
@@ -473,28 +560,54 @@ class DatabaseHelper {
   Future<void> updateSQLiteFromFirestore() async {
     try {
       // Fetch all documents from Firestore
-      QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('carpools').get();
+      QuerySnapshot snapshot =
+          await FirebaseFirestore.instance.collection('carpools').get();
 
       // Convert Firestore documents into a list of maps
-      List<Map<String, dynamic>> allRides = snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        data['firestoreID'] = doc.id; // Optional: Store the Firestore document ID in SQLite
-        return data;
-      }).toList();
+      List<Map<String, dynamic>> allRides =
+          snapshot.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            data['firestoreID'] =
+                doc.id; // Optional: Store the Firestore document ID in SQLite
+            return data;
+          }).toList();
 
       final db = await database;
 
-      // Clear the existing data in the 'carpools' table before inserting new data
-      await db.delete('carpools');
-
-      // Insert the new Firestore data into SQLite
       for (var ride in allRides) {
-        await db.insert(
+        // Check if the record already exists in SQLite based on the Firestore ID
+        final existingRide = await db.query(
           'carpools',
-          ride,
-          conflictAlgorithm: ConflictAlgorithm.replace,
+          where: 'firestoreID = ?',
+          whereArgs: [ride['firestoreID']],
         );
+
+        if (existingRide.isEmpty) {
+          // If the record doesn't exist, insert a new one
+          await db.insert(
+            'carpools',
+            ride,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          print('Inserted new carpool with ID: ${ride['firestoreID']}');
+        } else {
+          // If the record exists, compare the details to avoid unnecessary updates
+          final existingRideData = existingRide.first;
+          if (!mapEquals(existingRideData, ride)) {
+            // If the details have changed, update the existing record
+            await db.update(
+              'carpools',
+              ride,
+              where: 'firestoreID = ?',
+              whereArgs: [ride['firestoreID']],
+            );
+            print('Updated carpool with ID: ${ride['firestoreID']}');
+          } else {
+            print('No change for carpool with ID: ${ride['firestoreID']}');
+          }
+        }
       }
+
       print('SQLite updated with Firestore data.');
     } catch (e) {
       print('Error updating SQLite from Firestore: $e');
@@ -520,28 +633,290 @@ class DatabaseHelper {
     );
 
     // Apply filtering based on the user's preferences
-    List<Map<String, dynamic>> filteredRides = allRides.where((ride) {
-      bool locationMatch =
-          ride['pickUpPoint'] == fromLocation && ride['dropOffPoint'] == toLocation;
+    List<Map<String, dynamic>> filteredRides =
+        allRides.where((ride) {
+          bool locationMatch =
+              ride['pickUpPoint'] == fromLocation &&
+              ride['dropOffPoint'] == toLocation;
 
-      bool preferenceMatch = true;
-      if (musicPreference) {
-        preferenceMatch &= ride['ridePreference']?.toString().contains('Music') ?? false;
-      }
-      if (petFriendly) {
-        preferenceMatch &= ride['ridePreference']?.toString().contains('Pet') ?? false;
-      }
-      if (nonSmoking) {
-        preferenceMatch &= ride['ridePreference']?.toString().contains('Non-Smoking') ?? false;
-      }
+          bool preferenceMatch = true;
+          if (musicPreference) {
+            preferenceMatch &=
+                ride['ridePreference']?.toString().contains('Music') ?? false;
+          }
+          if (petFriendly) {
+            preferenceMatch &=
+                ride['ridePreference']?.toString().contains('Pet') ?? false;
+          }
+          if (nonSmoking) {
+            preferenceMatch &=
+                ride['ridePreference']?.toString().contains('Non-Smoking') ??
+                false;
+          }
 
-      bool seatAvailable = (ride['availableSeats'] ?? 0) >= seatCount;
+          bool seatAvailable = (ride['availableSeats'] ?? 0) >= seatCount;
 
-      return locationMatch && preferenceMatch && seatAvailable;
-    }).toList();
+          return locationMatch && preferenceMatch && seatAvailable;
+        }).toList();
 
     return filteredRides;
   }
 
+  Future<void> syncRidesFromFirestoreToSQLite() async {
+    try {
+      // Fetch all ride documents from Firestore
+      QuerySnapshot snapshot =
+          await FirebaseFirestore.instance.collection('rides').get();
+
+      // Convert Firestore documents into a list of maps
+      List<Map<String, dynamic>> allRides =
+          snapshot.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            data['firestoreID'] =
+                doc.id; // Store the Firestore document ID in SQLite
+            return data;
+          }).toList();
+
+      final db = await database;
+
+      // Loop through all the rides from Firestore
+      for (var ride in allRides) {
+        // Check if the ride already exists in SQLite based on the Firestore ID
+        final existingRide = await db.query(
+          'rides',
+          where: 'firestoreID = ?',
+          whereArgs: [ride['firestoreID']],
+        );
+
+        if (existingRide.isEmpty) {
+          // If the ride doesn't exist, insert it
+          await db.insert(
+            'rides',
+            ride,
+            conflictAlgorithm:
+                ConflictAlgorithm
+                    .replace, // In case of conflict, replace the data
+          );
+          print('Inserted new ride with Firestore ID: ${ride['firestoreID']}');
+        } else {
+          // If the ride exists, compare the data
+          final existingRideData = existingRide.first;
+          if (!mapEquals(existingRideData, ride)) {
+            // If the data is different, update the existing record
+            await db.update(
+              'rides',
+              ride,
+              where: 'firestoreID = ?',
+              whereArgs: [ride['firestoreID']],
+            );
+            print('Updated ride with Firestore ID: ${ride['firestoreID']}');
+          } else {
+            print(
+              'No changes for ride with Firestore ID: ${ride['firestoreID']}',
+            );
+          }
+        }
+      }
+
+      print('SQLite synced with Firestore data.');
+    } catch (e) {
+      print('Error syncing rides from Firestore to SQLite: $e');
+    }
+  }
+
+  // Update the ride status in both SQLite and Firestore
+  Future<void> confirmOrRejectRide(
+    int rideID,
+    String status,
+    int seatsToReduce,
+  ) async {
+    final db = await database;
+
+    // First, update the ride status in SQLite
+    await db.update(
+      'rides',
+      {'status': status},
+      where: 'rideID = ?',
+      whereArgs: [rideID],
+    );
+
+    // Then, update the ride status in Firestore
+    try {
+      // Fetch the ride from SQLite to get the carpoolID and userID
+      final ride = await db.query(
+        'rides',
+        where: 'rideID = ?',
+        whereArgs: [rideID],
+      );
+
+      if (ride.isNotEmpty) {
+        final carpoolID = ride.first['carpoolID'];
+        final userID = ride.first['userID'];
+
+        // Get the corresponding ride document from Firestore
+        final rideDocRef = FirebaseFirestore.instance
+            .collection('rides')
+            .doc(ride.first['firestoreID'] as String?);
+
+        // Update the status of the ride in Firestore (confirm or reject)
+        await rideDocRef.update({
+          'status': status, // 'confirmed' or 'rejected'
+        });
+
+        // Additional logic (e.g., if confirmed, update available seats in carpool)
+        if (status == 'confirmed') {
+          // Reduce the available seats for the carpool by seatsToReduce
+          await _updateCarpoolAvailableSeats(
+            carpoolID as int,
+            seatsToReduce,
+            status,
+          );
+        } else if (status == 'completed') {
+          await _updateCarpoolAvailableSeats(
+            carpoolID as int,
+            seatsToReduce,
+            status,
+          );
+        }
+      }
+    } catch (e) {
+      print('Failed to update ride status in Firestore: $e');
+    }
+  }
+
+  // Reduce available seats in the carpool when a ride is confirmed
+  Future<void> _updateCarpoolAvailableSeats(
+    int carpoolID,
+    int seatsToReduce,
+    String status,
+  ) async {
+    final db = await database;
+    final carpool = await db.query(
+      'carpools',
+      where: 'id = ?',
+      whereArgs: [carpoolID],
+    );
+
+    if (carpool.isNotEmpty) {
+      int availableSeats = (carpool.first['availableSeats'] as int?) ?? 0;
+
+      if (status == 'completed') {
+        // If the status is 'completed', add the seats back
+        availableSeats += seatsToReduce;
+      } else {
+        // Otherwise, reduce the available seats
+        if (availableSeats >= seatsToReduce) {
+          availableSeats -= seatsToReduce;
+        } else {
+          print("Not enough available seats to reduce by $seatsToReduce.");
+          return;
+        }
+      }
+
+      // Update the available seats in SQLite
+      await db.update(
+        'carpools',
+        {'availableSeats': availableSeats},
+        where: 'id = ?',
+        whereArgs: [carpoolID],
+      );
+      // Update the available seats in Firestore as well
+      try {
+        // Get the carpool document reference from Firestore
+        final carpoolDocRef = FirebaseFirestore.instance
+            .collection('carpools')
+            .doc(carpool.first['firestoreID'] as String?);
+
+        // Update the availableSeats field in Firestore
+        await carpoolDocRef.update({
+          'availableSeats': availableSeats - seatsToReduce,
+        });
+
+        print("Successfully updated available seats in Firestore.");
+      } catch (e) {
+        print("Failed to update available seats in Firestore: $e");
+      }
+    } else {
+      print("Not enough available seats to reduce by $seatsToReduce.");
+    }
+  }
+
+  Future<Map<String, dynamic>?> getCarpoolByID(int carpoolID) async {
+    final db = await database;
+    final result = await db.query(
+      'carpools',
+      where: 'id = ?',
+      whereArgs: [carpoolID],
+    );
+    if (result.isNotEmpty) {
+      return result.first;
+    }
+    return null;
+  }
+
+  Future<String> checkRideStatus(int rideID, int carpoolID, int userID) async {
+    final db = await database;
+
+    // Query the rides table for the status based on carpoolID and userID
+    final result = await db.query(
+      'rides',
+      where: 'rideID = ? AND carpoolID = ? AND userID = ?',
+      whereArgs: [rideID, carpoolID, userID],
+      limit: 1,
+    );
+
+    if (result.isNotEmpty) {
+      // Check the ride status
+      String status = result.first['status'] as String;
+
+      // Return the status: "confirmed", "rejected", "pending", etc.
+      return status;
+    }
+
+    // If no record is found, return an empty status (or "not found")
+    return 'not_found';
+  }
+
+  // Fetch user details by userID
+  Future<Map<String, dynamic>?> getUserByID(int userID) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'users',
+      where: 'userID = ?',
+      whereArgs: [userID],
+    );
+    if (result.isNotEmpty) {
+      return result.first; // Returning the first user
+    }
+    return null; // No user found
+  }
+
+  // Method to fetch rides for a specific carpoolID
+  Future<List<Map<String, dynamic>>> getRidesByCarpoolID(int carpoolID) async {
+    final db = await database;
+    // Query the 'rides' table where carpoolID matches the provided carpoolID
+    final result = await db.query(
+      'rides',
+      where: 'carpoolID = ?',
+      whereArgs: [carpoolID],
+    );
+
+    return result; // Return the list of rides (empty list if none found)
+  }
+
+  // Fetch ride details from the 'rides' table based on rideID
+  Future<Map<String, dynamic>?> getRideByID(int rideID) async {
+    final db = await database;
+    final result = await db.query(
+      'rides',
+      where: 'rideID = ?',
+      whereArgs: [rideID],
+    );
+
+    if (result.isNotEmpty) {
+      return result.first;
+    }
+    return null;
+  }
 
 }

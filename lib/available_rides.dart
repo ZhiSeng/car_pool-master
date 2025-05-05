@@ -271,40 +271,56 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                           onPressed: () async {
                             DatabaseHelper dbHelper = DatabaseHelper.instance;
                             int userID =
-                                1; // replace with the current logged-in passenger's userID
+                                2; // replace with the current logged-in passenger's userID
                             String pickupNote =
                                 pickupNoteController.text.trim();
+                            int seatCounter = widget.seatCount;
+                            print('Seat Count: $seatCounter');
 
-                            print(carpoolID);
-                            print(userID);
-                            print(pickupNote);
+                            // Convert boolean preferences to integer (1 for true, 0 for false)
+                            int musicPref = widget.musicPreference ? 1 : 0;
+                            int petFriendlyPref = widget.petFriendly ? 1 : 0;
+                            int nonSmokingPref = widget.nonSmoking ? 1 : 0;
 
-                            // Request the ride
-                            String result = await dbHelper.requestRide(
-                              carpoolID,
-                              userID,
-                              pickupNote: pickupNote,
-                            );
+                            // Create the ride data to insert
+                            Map<String, dynamic> rideData = {
+                              'carpoolID': carpoolID,
+                              'userID': userID,
+                              'status': 'requested',
+                              'pickupNote': pickupNote,
+                              'seat': seatCounter,
+                              'musicPreference': musicPref,
+                              'petFriendly': petFriendlyPref,
+                              'nonSmoking': nonSmokingPref,
+                            };
 
-                            // Show result
-                            ScaffoldMessenger.of(
-                              context,
-                            ).showSnackBar(SnackBar(content: Text(result)));
+                            // Insert the ride into both Firestore and SQLite
+                            int rideID = await dbHelper.insertRide(rideData);
 
-                            // Close bottom sheet before navigating
-                            Navigator.pop(context);
+                            if (rideID != -1) {
+                              ScaffoldMessenger.of(
+                                context,
+                              ).showSnackBar(SnackBar(content: Text('Ride confirmed!')));
 
-                            // Then navigate
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => WaitingForConfirmationPage(
-                                      carpoolID: carpoolID,
-                                      userID: userID,
-                                    ),
-                              ),
-                            );
+                              // Close bottom sheet before navigating
+                              Navigator.pop(context);
+
+                              // Navigate to the WaitingForConfirmationPage
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => WaitingForConfirmationPage(
+                                    rideID: rideID,
+                                    carpoolID: carpoolID,
+                                    userID: userID,
+                                  ),
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Failed to confirm the ride.')),
+                              );
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blueAccent,
