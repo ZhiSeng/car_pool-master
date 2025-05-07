@@ -46,21 +46,24 @@ class DatabaseHelper {
 
     // Create the carpools table
     await db.execute('''
-      CREATE TABLE carpools (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        firestoreID TEXT,
-        userID INTEGER NOT NULL,
-        pickUpPoint TEXT NOT NULL,
-        dropOffPoint TEXT NOT NULL,
-        date TEXT NOT NULL,
-        time TEXT NOT NULL,
-        availableSeats INTEGER NOT NULL,
-        ridePreference TEXT,
-        status TEXT DEFAULT 'active',
-        earnings REAL DEFAULT 0.0,
-        FOREIGN KEY(userID) REFERENCES users(userID)
-      )
-    ''');
+    CREATE TABLE carpools (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      firestoreID TEXT,
+      userID INTEGER NOT NULL,
+      pickUpPoint TEXT NOT NULL,
+      dropOffPoint TEXT NOT NULL,
+      date TEXT NOT NULL,
+      time TEXT NOT NULL,
+      availableSeats INTEGER NOT NULL,
+      ridePreference TEXT,
+      status TEXT DEFAULT 'active',
+      earnings REAL DEFAULT 0.0,
+      carPlateNumber TEXT,  -- New field for car plate number
+      carColor TEXT,        -- New field for car color
+      carModel TEXT,        -- New field for car model
+      FOREIGN KEY(userID) REFERENCES users(userID)
+    )
+  ''');
 
     // Create the carpool history table
     await db.execute('''
@@ -252,23 +255,26 @@ class DatabaseHelper {
   Future<int> insertCarpool(Map<String, dynamic> carpool) async {
     final db = await database;
 
-    // Insert into Firestore first, Firestore automatically generates an ID
     try {
+      // Insert into Firestore
       DocumentReference docRef = await FirebaseFirestore.instance
           .collection('carpools')
           .add({
-            'userID': carpool['userID'],
-            'pickUpPoint': carpool['pickUpPoint'],
-            'dropOffPoint': carpool['dropOffPoint'],
-            'date': carpool['date'],
-            'time': carpool['time'],
-            'availableSeats': carpool['availableSeats'],
-            'ridePreference': carpool['ridePreference'],
-            'status': carpool['status'],
-            'earnings': carpool['earnings'],
-          });
+        'userID': carpool['userID'],
+        'pickUpPoint': carpool['pickUpPoint'],
+        'dropOffPoint': carpool['dropOffPoint'],
+        'date': carpool['date'],
+        'time': carpool['time'],
+        'availableSeats': carpool['availableSeats'],
+        'ridePreference': carpool['ridePreference'],
+        'status': carpool['status'],
+        'earnings': carpool['earnings'],
+        'carPlateNumber': carpool['carPlateNumber'],  // Car plate number
+        'carColor': carpool['carColor'],              // Car color
+        'carModel': carpool['carModel'],              // Car model
+      });
 
-      // After successfully adding to Firestore, insert the rest into SQLite
+      // After successfully adding to Firestore, insert into SQLite
       Map<String, dynamic> carpoolData = {
         'userID': carpool['userID'],
         'pickUpPoint': carpool['pickUpPoint'],
@@ -279,10 +285,13 @@ class DatabaseHelper {
         'ridePreference': carpool['ridePreference'],
         'status': carpool['status'],
         'earnings': carpool['earnings'],
+        'carPlateNumber': carpool['carPlateNumber'],  // Car plate number
+        'carColor': carpool['carColor'],              // Car color
+        'carModel': carpool['carModel'],              // Car model
         'firestoreID': docRef.id,
       };
 
-      // Insert into SQLite, no need to store Firestore ID here
+      // Insert into SQLite
       int carpoolID = await db.insert(
         'carpools',
         carpoolData,
@@ -295,6 +304,7 @@ class DatabaseHelper {
       return -1; // Return error code if Firestore insert fails
     }
   }
+
 
   // Insert a new ride into both Firestore and SQLite
   Future<int> insertRide(Map<String, dynamic> ride) async {
