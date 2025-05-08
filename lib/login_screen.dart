@@ -26,11 +26,11 @@ class _LoginScreenState extends State<LoginScreen> {
     if (user != null && user['password'] == password) {
       _showMessage('Login Successful!');
 
-      // ✅ Pass email to CarpoolMainPage
+      // Pass userID to CarpoolMainPage
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => CarpoolMainPage(email: email),
+          builder: (context) => CarpoolMainPage(userID: user['userID']),
         ),
       );
     } else {

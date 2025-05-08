@@ -30,7 +30,7 @@ class DatabaseHelper {
 
   Future<void> _createTables(Database db) async {
     // Create the users table for login, registration, and password retrieval
-    await db.execute('''
+    await db.execute(''' 
       CREATE TABLE users (
         userID INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL,
@@ -109,45 +109,44 @@ class DatabaseHelper {
     }
   }
 
-  // Insert into Firestore then sync to SQLite
+  // Insert into Firestore and auto-increment userID
   Future<int> insertUser(Map<String, dynamic> user) async {
     final db = await database;
 
-    // Set default values
+    // Set default values for rating, reviewCount, and ecoPoints if not provided
     user['rating'] = user['rating'] ?? 0.0;
     user['reviewCount'] = user['reviewCount'] ?? 0;
     user['ecoPoints'] = user['ecoPoints'] ?? 0;
 
     try {
-      // Insert into Firestore
-      DocumentReference docRef = await FirebaseFirestore.instance
-          .collection('users')
-          .add({
-            'username': user['username'],
-            'email': user['email'],
-            'password': user['password'],
-            'security_question': user['security_question'],
-            'security_answer': user['security_answer'],
-            'rating': user['rating'],
-            'reviewCount': user['reviewCount'],
-            'ecoPoints': user['ecoPoints'],
-          });
-
-      // ✅ Prepare data for SQLite (exclude 'firestoreID')
-      Map<String, dynamic> sqliteUser = Map.from(user);
-      sqliteUser.remove('firestoreID');
-
-      // Insert into SQLite
-      return await db.insert(
+      // Insert into SQLite first
+      int sqliteUserID = await db.insert(
         'users',
-        sqliteUser,
-        conflictAlgorithm: ConflictAlgorithm.replace,
+        user,
+        conflictAlgorithm: ConflictAlgorithm.replace, // Handle conflicts by replacing
       );
+
+      // Now insert into Firestore using the sqliteUserID as the userID
+      await FirebaseFirestore.instance.collection('users').add({
+        'userID': sqliteUserID, // Use SQLite's auto-generated userID here
+        'username': user['username'],
+        'email': user['email'],
+        'password': user['password'],
+        'security_question': user['security_question'],
+        'security_answer': user['security_answer'],
+        'rating': user['rating'],
+        'reviewCount': user['reviewCount'],
+        'ecoPoints': user['ecoPoints'],
+      });
+
+      return sqliteUserID; // Return SQLite userID
     } catch (e) {
       print('Insert user failed: $e');
-      return -1;
+      return -1; // Return error code if Firestore insert fails
     }
   }
+
+
 
   // Sync latest user from Firestore into SQLite
   Future<void> syncUserFromFirestore(String email) async {

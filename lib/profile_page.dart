@@ -3,9 +3,9 @@ import 'database_helper.dart';
 import 'login_screen.dart';
 
 class ProfilePage extends StatefulWidget {
-  final String email;
+  final int userID;
 
-  ProfilePage({required this.email});
+  ProfilePage({required this.userID});
 
   @override
   _ProfilePageState createState() => _ProfilePageState();
@@ -31,8 +31,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _loadUserData() async {
-    await DatabaseHelper.instance.syncUserFromFirestore(widget.email);
-    final user = await DatabaseHelper.instance.getUser(widget.email);
+    final user = await DatabaseHelper.instance.getUserByID(widget.userID);
 
     if (user != null) {
       setState(() {
@@ -58,12 +57,13 @@ class _ProfilePageState extends State<ProfilePage> {
         return;
       }
 
-      await DatabaseHelper.instance.updateUserData(widget.email, {
+      await DatabaseHelper.instance.updateUserData(widget.userID.toString(), {
         'username': usernameController.text.trim(),
         'password': password,
         'security_question': selectedQuestion,
         'security_answer': securityAnswerController.text.trim(),
       });
+
 
       _showMessage("Profile updated successfully!", isSuccess: true);
     }

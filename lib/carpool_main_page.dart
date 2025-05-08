@@ -5,11 +5,10 @@ import 'profile_page.dart';
 import 'rate_review_list_page.dart';
 import 'find_a_ride.dart';
 
-
 class CarpoolMainPage extends StatefulWidget {
-  final String email;
+  final int userID;
 
-  CarpoolMainPage({required this.email});
+  CarpoolMainPage({required this.userID});
 
   @override
   _CarpoolMainPageState createState() => _CarpoolMainPageState();
@@ -25,7 +24,7 @@ class _CarpoolMainPageState extends State<CarpoolMainPage> {
   }
 
   Future<void> _loadUsername() async {
-    final user = await DatabaseHelper.instance.getUser(widget.email);
+    final user = await DatabaseHelper.instance.getUserByID(widget.userID);
     if (user != null) {
       setState(() {
         username = user['username'];
@@ -46,10 +45,9 @@ class _CarpoolMainPageState extends State<CarpoolMainPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ProfilePage(email: widget.email),
+                    builder: (context) => ProfilePage(userID: widget.userID),
                   ),
                 ).then((_) {
-                  // ✅ Refresh username after returning from ProfilePage
                   _loadUsername();
                 });
               },
@@ -93,20 +91,16 @@ class _CarpoolMainPageState extends State<CarpoolMainPage> {
                   MaterialPageRoute(builder: (context) => FindARidePage()),
                 );
               },
-              child: Text('Find a Ride'), // Button for FindARidePage
+              child: Text('Find a Ride'),
             ),
             ElevatedButton(
               onPressed: () async {
-                final user = await DatabaseHelper.instance.getUser(widget.email);
-                if (user != null) {
-                  int userID = user['userID'];
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => RateReviewListPage(userID: userID),
-                    ),
-                  );
-                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => RateReviewListPage(userID: widget.userID),
+                  ),
+                );
               },
               child: Text('Rate & Review'),
             ),
