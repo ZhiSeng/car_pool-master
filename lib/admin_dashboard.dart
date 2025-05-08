@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'database_helper.dart';
+import 'voucher_management_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   @override
@@ -29,7 +30,34 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
         ],
       ),
-      body: _buildBody(),
+      body: Padding(
+        padding: EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Welcome, Admin!',
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 40),
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: ListTile(
+                leading: Icon(Icons.card_giftcard, size: 40, color: Colors.blue),
+                title: Text('Voucher Management', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500)),
+                trailing: Icon(Icons.arrow_forward_ios),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => VoucherManagementScreen()),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
