@@ -3,6 +3,7 @@ import 'database_helper.dart';
 import 'carpool_main_page.dart';
 import 'registration_screen.dart';
 import 'retrieve_password_screen.dart';
+import 'admin_login_screen.dart'; // ✅ Import Admin login screen
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -12,6 +13,20 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+
+  int _selectedIndex = 0;
+
+  void _onBottomNavTapped(int index) {
+    if (index == 1) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => AdminLoginScreen()),
+      );
+    }
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
 
   void _login() async {
     String email = emailController.text.trim();
@@ -26,11 +41,11 @@ class _LoginScreenState extends State<LoginScreen> {
     if (user != null && user['password'] == password) {
       _showMessage('Login Successful!');
 
-      // ✅ Pass email to CarpoolMainPage
+      // Pass userID to CarpoolMainPage
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => CarpoolMainPage(email: email),
+          builder: (context) => CarpoolMainPage(userID: user['userID']),
         ),
       );
     } else {
@@ -82,6 +97,20 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ],
         ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onBottomNavTapped,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'User Login',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.admin_panel_settings),
+            label: 'Admin Login',
+          ),
+        ],
       ),
     );
   }
