@@ -13,7 +13,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
   final TextEditingController securityAnswerController = TextEditingController();
-  String selectedQuestion = 'What is your pet name?';  // Default security question
+  String selectedQuestion = 'What is your pet name?';
 
   // Function to register the user
   void _register() async {
@@ -60,7 +60,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
   }
 
-
   // Function to display a message
   void _showMessage(String message, {bool isSuccess = false}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -81,20 +80,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             TextField(controller: emailController, decoration: InputDecoration(labelText: 'Email')),
             TextField(controller: passwordController, decoration: InputDecoration(labelText: 'Password'), obscureText: true),
             TextField(controller: confirmPasswordController, decoration: InputDecoration(labelText: 'Confirm Password'), obscureText: true),
-
-            // 🔽 Dropdown for security question
             DropdownButtonFormField<String>(
               value: selectedQuestion,
               decoration: InputDecoration(labelText: 'Select Security Question'),
-              items: [
-                'What is your pet name?',
-                'What is your mother\'s maiden name?',
-                'What was your first school?'
-              ].map((String question) {
-                return DropdownMenuItem<String>(
-                  value: question,
-                  child: Text(question),
-                );
+              items: ['What is your pet name?', 'What is your mother\'s maiden name?', 'What was your first school?']
+                  .map((String question) {
+                return DropdownMenuItem<String>(value: question, child: Text(question));
               }).toList(),
               onChanged: (String? newValue) {
                 setState(() {
@@ -102,10 +93,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 });
               },
             ),
-
-            // 🔒 Text field for answer
             TextField(controller: securityAnswerController, decoration: InputDecoration(labelText: 'Security Answer')),
-
             SizedBox(height: 20),
             ElevatedButton(onPressed: _register, child: Text('Sign Up')),
             TextButton(
@@ -117,7 +105,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               },
               child: Text('Back to Login'),
             ),
-
           ],
         ),
       ),
