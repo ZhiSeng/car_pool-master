@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'database_helper.dart';
-import 'rate_driver_page.dart'; 
+import 'rate_driver_page.dart';
 
 class RateReviewListPage extends StatefulWidget {
   final int userID;
@@ -48,6 +48,8 @@ class _RateReviewListPageState extends State<RateReviewListPage> {
                   builder: (_) => RateDriverPage(
                     driverID: ride['driverID'],
                     driverName: ride['driverName'],
+                    reviewerID: widget.userID,
+                    rideID: null, // Optional: modify if you want to pass real rideID
                   ),
                 ),
               );

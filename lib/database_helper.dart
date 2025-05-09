@@ -38,8 +38,6 @@ class DatabaseHelper {
         password TEXT NOT NULL,
         security_question TEXT NOT NULL,
         security_answer TEXT NOT NULL,
-        rating REAL,
-        reviewCount INTEGER,
         ecoPoints INTEGER
       )
     ''');
@@ -92,6 +90,20 @@ class DatabaseHelper {
         firestoreID TEXT,
         FOREIGN KEY(carpoolID) REFERENCES carpools(id),
         FOREIGN KEY(userID) REFERENCES users(userID)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE reviews (
+        reviewID INTEGER PRIMARY KEY AUTOINCREMENT,
+        reviewerID INTEGER,
+        reviewedUserID INTEGER,
+        rideID INTEGER,
+        rating INTEGER,
+        timestamp TEXT,
+        FOREIGN KEY(reviewerID) REFERENCES users(userID),
+        FOREIGN KEY(reviewedUserID) REFERENCES users(userID),
+        FOREIGN KEY(rideID) REFERENCES rides(rideID)
       )
     ''');
   }
@@ -536,34 +548,31 @@ class DatabaseHelper {
   }
 
   // Submit or update driver's average rating and review count
-  Future<void> submitDriverRating(int driverID, double newRating) async {
-    final db = await database;
-
-    final result = await db.query(
-      'users',
-      columns: ['rating', 'reviewCount'],
-      where: 'userID = ?',
-      whereArgs: [driverID],
-    );
-
-    if (result.isNotEmpty) {
-      final current = result.first;
-      double oldRating =
-          current['rating'] != null ? current['rating'] as double : 0.0;
-      int reviewCount =
-          current['reviewCount'] != null ? current['reviewCount'] as int : 0;
-
-      double updatedRating =
-          ((oldRating * reviewCount) + newRating) / (reviewCount + 1);
-
-      await db.update(
-        'users',
-        {'rating': updatedRating, 'reviewCount': reviewCount + 1},
-        where: 'userID = ?',
-        whereArgs: [driverID],
-      );
-    }
+  Future<void> submitReview(int reviewerID, int reviewedUserID, int rideID, int rating) async {
+    final db = await instance.database;
+    await db.insert('reviews', {
+      'reviewerID': reviewerID,
+      'reviewedUserID': reviewedUserID,
+      'rideID': rideID,
+      'rating': rating,
+      'timestamp': DateTime.now().toIso8601String(),
+    });
   }
+
+  Future<Map<String, dynamic>> getRatingStats(int reviewedUserID) async {
+    final db = await instance.database;
+    final result = await db.rawQuery('''
+    SELECT AVG(rating) as averageRating, COUNT(*) as reviewCount
+    FROM reviews
+    WHERE reviewedUserID = ?
+  ''', [reviewedUserID]);
+
+    return {
+      'averageRating': result.first['averageRating'] ?? 0.0,
+      'reviewCount': result.first['reviewCount'] ?? 0,
+    };
+  }
+
 
   // Fetch data from Firestore and overwrite SQLite
   Future<void> updateSQLiteFromFirestore() async {
