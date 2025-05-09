@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Firebase Auth import
 import 'database_helper.dart'; // Ensure correct import for your DatabaseHelper
 import 'registered_carpool.dart'; // Import the Registered Carpool screen
 import 'carpool_history.dart'; // Import the Carpool History screen
 
 class CarpoolRegistrationPage extends StatefulWidget {
+  final int userID;
+
+  // Accept userID passed from CarpoolMainPage
+  CarpoolRegistrationPage({required this.userID});
+
   @override
   _CarpoolRegistrationPageState createState() =>
       _CarpoolRegistrationPageState();
@@ -44,30 +48,12 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
 
   int _selectedIndex = 0;
 
-  // Firebase Auth instance
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  User? _currentUser;
-
   // Function to handle navigation between pages based on the selected index
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
   }
-
-  @override
-  void initState() {
-    super.initState();
-    // Get the current user on page load
-    _currentUser = _auth.currentUser;
-  }
-
-  // List of pages for Bottom Navigation
-  static const List<Widget> _widgetOptions = <Widget>[
-    Text('Carpool Registration'), // Placeholder for Carpool Registration
-    RegisteredCarpoolPage(), // Registered Carpool Page
-    CarpoolHistoryPage(), // Carpool History Page
-  ];
 
   // Function to open date picker (only future dates)
   Future<void> _selectDate(BuildContext context) async {
@@ -169,8 +155,8 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
       return;
     }
 
-    if (_currentUser == null) {
-      // If no user is logged in, show an error
+    if (widget.userID == null) {
+      // If userID is not passed or null, show error
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("User not logged in.")));
       return;
     }
@@ -192,7 +178,7 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
 
     // Prepare data to insert into the database
     Map<String, dynamic> carpoolData = {
-      'userID': _currentUser!.uid, // Use the current user's UID
+      'userID': widget.userID, // Use the passed userID from CarpoolMainPage
       'pickUpPoint': pickUp,
       'dropOffPoint': dropOff,
       'date': date,
@@ -218,8 +204,7 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
       appBar: AppBar(
         title: Text('Carpool Registration'),
       ),
-      body: _selectedIndex == 0
-          ? SingleChildScrollView(  // Make the content scrollable to prevent overflow
+      body: SingleChildScrollView(  // Make the content scrollable to prevent overflow
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -379,25 +364,6 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
             ],
           ),
         ),
-      )
-          : _widgetOptions.elementAt(_selectedIndex), // Display appropriate page based on the selected index
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add),
-            label: 'Register Carpool',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.list),
-            label: 'Registered Carpool',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'Carpool History',
-          ),
-        ],
       ),
     );
   }

@@ -77,9 +77,12 @@ class _CarpoolMainPageState extends State<CarpoolMainPage> {
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
+                // Pass userID to CarpoolRegistrationPage
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => CarpoolRegistrationPage()),
+                  MaterialPageRoute(
+                    builder: (context) => CarpoolRegistrationPage(userID: widget.userID), // Pass userID here
+                  ),
                 );
               },
               child: Text('Register a Carpool'),
