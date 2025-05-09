@@ -48,8 +48,6 @@ class _RateReviewListPageState extends State<RateReviewListPage> {
                   builder: (_) => RateDriverPage(
                     driverID: ride['driverID'],
                     driverName: ride['driverName'],
-                    reviewerID: widget.userID,
-                    rideID: null, // Optional: modify if you want to pass real rideID
                   ),
                 ),
               );

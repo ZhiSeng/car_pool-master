@@ -4,16 +4,8 @@ import 'database_helper.dart';
 class RateDriverPage extends StatefulWidget {
   final int driverID;
   final String driverName;
-  final int reviewerID;
-  final int? rideID; // Optional if you want to tie review to a specific ride
 
-  const RateDriverPage({
-    super.key,
-    required this.driverID,
-    required this.driverName,
-    required this.reviewerID,
-    this.rideID,
-  });
+  const RateDriverPage({super.key, required this.driverID, required this.driverName});
 
   @override
   _RateDriverPageState createState() => _RateDriverPageState();
@@ -30,12 +22,7 @@ class _RateDriverPageState extends State<RateDriverPage> {
       return;
     }
 
-    await DatabaseHelper.instance.submitReview(
-      widget.reviewerID,
-      widget.driverID,
-      widget.rideID ?? 0, // Set to 0 if not provided
-      selectedRating,
-    );
+    await DatabaseHelper.instance.submitDriverRating(widget.driverID, selectedRating.toDouble());
 
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text("Thanks for rating ${widget.driverName}!"),
