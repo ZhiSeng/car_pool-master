@@ -22,6 +22,10 @@ class _RegisteredCarpoolPageState extends State<RegisteredCarpoolPage> {
 
   // Fetch all registered carpools for the specific user
   Future<void> _loadRegisteredCarpools() async {
+    // Ensure Firestore data is synced to SQLite
+    await DatabaseHelper.instance.syncCarpoolsFromFirestoreToSQLite();
+
+    // Now fetch the carpool data from SQLite
     final carpoolData = await DatabaseHelper.instance.getCarpools(widget.userID);
 
     setState(() {

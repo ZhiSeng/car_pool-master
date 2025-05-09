@@ -927,5 +927,32 @@ class DatabaseHelper {
     }
     return null;
   }
+  Future<void> syncCarpoolsFromFirestoreToSQLite() async {
+    try {
+      QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('carpools').get();
+      final db = await database;
+
+      for (var doc in snapshot.docs) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['firestoreID'] = doc.id;  // Store Firestore document ID in SQLite
+
+        final existingCarpool = await db.query(
+          'carpools',
+          where: 'firestoreID = ?',
+          whereArgs: [data['firestoreID']],
+        );
+
+        if (existingCarpool.isEmpty) {
+          await db.insert('carpools', data, conflictAlgorithm: ConflictAlgorithm.replace);
+        } else {
+          await db.update('carpools', data, where: 'firestoreID = ?', whereArgs: [data['firestoreID']]);
+        }
+      }
+      print('Carpools data synced from Firestore to SQLite.');
+    } catch (e) {
+      print('Error syncing carpools: $e');
+    }
+  }
+
 
 }
