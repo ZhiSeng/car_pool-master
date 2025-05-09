@@ -21,9 +21,9 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
   final _timeController = TextEditingController();
   final _seatsController = TextEditingController();
   final _preferenceController = TextEditingController();
-  final _carPlateController = TextEditingController();  // Car Plate TextField
-  final _carColorController = TextEditingController();  // Car Color TextField
-  final _carModelController = TextEditingController();  // Car Model TextField
+  final _carPlateController = TextEditingController(); // Car Plate TextField
+  final _carColorController = TextEditingController(); // Car Color TextField
+  final _carModelController = TextEditingController(); // Car Model TextField
 
   // Dropdown list for pick-up and drop-off points
   final List<String> locations = [
@@ -66,7 +66,8 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
     ) ?? initialDate;
 
     setState(() {
-      _dateController.text = "${pickedDate.toLocal()}".split(' ')[0];  // YYYY-MM-DD
+      _dateController.text =
+      "${pickedDate.toLocal()}".split(' ')[0]; // YYYY-MM-DD
     });
   }
 
@@ -81,18 +82,20 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
 
     // Check if the selected time is in the future
     DateTime now = DateTime.now();
-    DateTime selectedDateTime = DateTime(now.year, now.month, now.day, pickedTime.hour, pickedTime.minute);
+    DateTime selectedDateTime = DateTime(
+        now.year, now.month, now.day, pickedTime.hour, pickedTime.minute);
 
     if (selectedDateTime.isBefore(now)) {
       // Adjust time to future if selected time is in the past
-      selectedDateTime = selectedDateTime.add(Duration(minutes: 1)); // Add 1 minute to ensure future time
+      selectedDateTime = selectedDateTime.add(
+          Duration(minutes: 1)); // Add 1 minute to ensure future time
 
       // Update the time picker to reflect future time
       pickedTime = TimeOfDay.fromDateTime(selectedDateTime);
     }
 
     setState(() {
-      _timeController.text = "${pickedTime.format(context)}";  // HH:MM AM/PM
+      _timeController.text = "${pickedTime.format(context)}"; // HH:MM AM/PM
     });
   }
 
@@ -104,10 +107,12 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
     if (_selectedDropOff.isEmpty) {
       return "Drop-Off Point is required.";
     }
-    if (_dateController.text.isEmpty || DateTime.parse(_dateController.text).isBefore(DateTime.now())) {
+    if (_dateController.text.isEmpty ||
+        DateTime.parse(_dateController.text).isBefore(DateTime.now())) {
       return "Please select a future date.";
     }
-    if (_timeController.text.isEmpty || DateTime.now().isAfter(DateTime.now().add(Duration(hours: 1)))) {
+    if (_timeController.text.isEmpty ||
+        DateTime.now().isAfter(DateTime.now().add(Duration(hours: 1)))) {
       return "Please select a future time.";
     }
     if (_availableSeats < 1) {
@@ -151,13 +156,15 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
     String? validationMessage = _validateForm();
     if (validationMessage != null) {
       // If validation fails, show an error message
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(validationMessage)));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(validationMessage)));
       return;
     }
 
     if (widget.userID == null) {
       // If userID is not passed or null, show error
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("User not logged in.")));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("User not logged in.")));
       return;
     }
 
@@ -172,9 +179,9 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
       if (_nonSmoking) 'Non-Smoking'
     ].join(', ');
 
-    final carPlate = _carPlateController.text;  // Car Plate number
-    final carColor = _carColorController.text;  // Car Color
-    final carModel = _carModelController.text;  // Car Model
+    final carPlate = _carPlateController.text; // Car Plate number
+    final carColor = _carColorController.text; // Car Color
+    final carModel = _carModelController.text; // Car Model
 
     // Prepare data to insert into the database
     Map<String, dynamic> carpoolData = {
@@ -186,9 +193,9 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
       'availableSeats': seats,
       'ridePreference': preference,
       'status': 'active', // Set it as active
-      'carPlateNumber': carPlate,  // Store car plate number
-      'carColor': carColor,        // Store car color
-      'carModel': carModel,        // Store car model
+      'carPlateNumber': carPlate, // Store car plate number
+      'carColor': carColor, // Store car color
+      'carModel': carModel, // Store car model
     };
 
     // Insert carpool into the database
@@ -199,18 +206,18 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Carpool Registration'),
       ),
-      body: SingleChildScrollView(  // Make the content scrollable to prevent overflow
+      body: _selectedIndex == 0
+          ? SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Pick-Up Point Dropdown with Label aligned left
               Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
@@ -224,7 +231,8 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
                           _selectedPickUp = newValue!;
                         });
                       },
-                      items: locations.map<DropdownMenuItem<String>>((String value) {
+                      items: locations.map<DropdownMenuItem<String>>((
+                          String value) {
                         return DropdownMenuItem<String>(
                           value: value,
                           child: Text(value),
@@ -234,8 +242,6 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
                   ),
                 ],
               ),
-
-              // Drop-Off Point Dropdown with Label aligned left
               SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.start,
@@ -250,7 +256,8 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
                           _selectedDropOff = newValue!;
                         });
                       },
-                      items: locations.map<DropdownMenuItem<String>>((String value) {
+                      items: locations.map<DropdownMenuItem<String>>((
+                          String value) {
                         return DropdownMenuItem<String>(
                           value: value,
                           child: Text(value),
@@ -314,7 +321,8 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
               SizedBox(height: 12),
               TextField(
                 controller: _carPlateController,
-                decoration: InputDecoration(labelText: 'Enter Car Plate Number'),
+                decoration: InputDecoration(
+                    labelText: 'Enter Car Plate Number'),
               ),
               TextField(
                 controller: _carColorController,
@@ -327,7 +335,8 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
 
               // Ride Preferences (Checkboxes) with Label
               SizedBox(height: 20),
-              Text('Ride Preferences', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text('Ride Preferences',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               CheckboxListTile(
                 title: Text("Music Preference"),
                 value: _musicPreference,
@@ -364,6 +373,28 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
             ],
           ),
         ),
+      )
+          : _selectedIndex == 1
+          ? RegisteredCarpoolPage(userID: widget.userID) // Pass userID here
+          : CarpoolHistoryPage(),
+      // Assuming CarpoolHistoryPage doesn't need userID
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add),
+            label: 'Register Carpool',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.list),
+            label: 'Registered Carpool',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history),
+            label: 'Carpool History',
+          ),
+        ],
       ),
     );
   }
