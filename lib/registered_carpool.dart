@@ -3,7 +3,9 @@ import 'database_helper.dart';  // Ensure correct import for your DatabaseHelper
 import 'driver_confirm_ride.dart';
 
 class RegisteredCarpoolPage extends StatefulWidget {
-  const RegisteredCarpoolPage({Key? key}) : super(key: key);
+  final int userID;
+
+  const RegisteredCarpoolPage({Key? key, required this.userID}) : super(key: key);
 
   @override
   _RegisteredCarpoolPageState createState() => _RegisteredCarpoolPageState();
@@ -18,10 +20,9 @@ class _RegisteredCarpoolPageState extends State<RegisteredCarpoolPage> {
     _loadRegisteredCarpools();
   }
 
-  // Fetch all registered carpools
+  // Fetch all registered carpools for the specific user
   Future<void> _loadRegisteredCarpools() async {
-    int userID = 1;  // Replace with actual userID
-    final carpoolData = await DatabaseHelper.instance.getCarpools(userID);
+    final carpoolData = await DatabaseHelper.instance.getCarpools(widget.userID);
 
     setState(() {
       registeredCarpools = carpoolData;
@@ -80,7 +81,6 @@ class _RegisteredCarpoolPageState extends State<RegisteredCarpoolPage> {
 
   // Navigate to Driver Confirm Ride Page
   void _openDriverConfirmRidePage(int carpoolID) {
-    // Navigate to the page where the driver can confirm rides
     Navigator.push(
       context,
       MaterialPageRoute(
