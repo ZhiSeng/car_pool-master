@@ -67,16 +67,21 @@ class DatabaseHelper {
 
     // Create the carpool history table
     await db.execute('''
-      CREATE TABLE carpool_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        carpoolID INTEGER NOT NULL,
-        userID INTEGER NOT NULL,
-        status TEXT,
-        earnings REAL DEFAULT 0.0,
-        FOREIGN KEY(carpoolID) REFERENCES carpools(id),
-        FOREIGN KEY(userID) REFERENCES users(userID)
+     CREATE TABLE carpool_history (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+    carpoolID INTEGER NOT NULL,
+    userID INTEGER NOT NULL,
+    status TEXT,
+    earnings REAL DEFAULT 0.0,
+    pickUpPoint TEXT,
+    dropOffPoint TEXT,
+    date TEXT,
+    time TEXT,
+    FOREIGN KEY(carpoolID) REFERENCES carpools(id),
+    FOREIGN KEY(userID) REFERENCES users(userID)
       )
     ''');
+
 
     await db.execute('''
       CREATE TABLE rides (
@@ -292,6 +297,28 @@ class DatabaseHelper {
       where: 'id = ?',
       whereArgs: [carpoolID],
     );
+  }
+// Method to update carpool status to 'inactive' in both SQLite and Firestore
+  Future<void> updateCarpoolStatusToInactive(String carpoolID) async {
+    try {
+      // Update Firestore status to 'inactive'
+      await FirebaseFirestore.instance
+          .collection('carpools')
+          .doc(carpoolID)
+          .update({'status': 'inactive'});
+
+      // Update SQLite status as well
+      final db = await database;
+      await db.update(
+        'carpools',
+        {'status': 'inactive'},
+        where: 'firestoreID = ?',
+        whereArgs: [carpoolID],
+      );
+    } catch (e) {
+      print('Error updating carpool status: $e');
+      throw Exception('Failed to update carpool status');
+    }
   }
 
   // Insert a new carpool into both SQLite and Firestore
@@ -525,14 +552,13 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getCarpoolHistory(int userID) async {
     final db = await database;
     return await db.query(
-      'carpool_history',
-      where: 'userID = ? AND (status = ? OR status = ?)',
-      // Completed or Canceled
-      whereArgs: [userID, 'completed', 'canceled'],
-      orderBy:
-      'status DESC', // Order by status (completed first, then canceled)
+      'carpool_history',  // The name of the table
+      where: 'userID = ?',
+      whereArgs: [userID], // Only fetch records for the specific user
+      orderBy: 'date DESC', // Optional: Order by the date, for example
     );
   }
+
 
   // Fetch active carpools for the Registered Carpool page
   Future<List<Map<String, dynamic>>> getCarpools(int userID) async {
@@ -540,10 +566,11 @@ class DatabaseHelper {
     return await db.query(
       'carpools',
       where: 'userID = ? AND status = ?',
-      whereArgs: [userID, 'active'],
+      whereArgs: [userID, 'active'], // Fetch only active carpools
       orderBy: 'date DESC',
     );
   }
+
 
   // Insert carpool history (either completed or canceled)
   Future<void> addCarpoolHistory(
@@ -553,12 +580,30 @@ class DatabaseHelper {
       double earnings,
       ) async {
     final db = await database;
-    await db.insert('carpool_history', {
-      'carpoolID': carpoolID,
-      'userID': userID,
-      'status': status,
-      'earnings': earnings,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+
+    // Retrieve carpool details based on carpoolID from the 'carpools' table
+    final carpool = await db.query(
+      'carpools',
+      where: 'id = ?',
+      whereArgs: [carpoolID],
+    );
+
+    if (carpool.isNotEmpty) {
+      final carpoolData = carpool.first;
+
+      // Insert the completed or canceled carpool into the carpool_history table
+      await db.insert('carpool_history', {
+        'carpoolID': carpoolID,
+        'userID': userID,
+        'status': status, // 'completed' or 'canceled'
+        'earnings': earnings,
+        // Copy details from the carpool table to the history table
+        'pickUpPoint': carpoolData['pickUpPoint'],
+        'dropOffPoint': carpoolData['dropOffPoint'],
+        'date': carpoolData['date'],
+        'time': carpoolData['time'],
+      });
+    }
   }
 
   // Get list of drivers from completed rides for rating
@@ -593,9 +638,9 @@ class DatabaseHelper {
     if (result.isNotEmpty) {
       final current = result.first;
       double oldRating =
-          current['rating'] != null ? current['rating'] as double : 0.0;
+      current['rating'] != null ? current['rating'] as double : 0.0;
       int reviewCount =
-          current['reviewCount'] != null ? current['reviewCount'] as int : 0;
+      current['reviewCount'] != null ? current['reviewCount'] as int : 0;
 
       double updatedRating =
           ((oldRating * reviewCount) + newRating) / (reviewCount + 1);
@@ -998,6 +1043,7 @@ class DatabaseHelper {
     }
   }
 
+
   Future<bool> hasOngoingRide(int userID) async {
     final db = await database;
 
@@ -1118,6 +1164,101 @@ class DatabaseHelper {
     final db = await database;
     return await db.query('vouchers');
   }
+  Future<void> addCarpoolHistoryToFirestore(
+      String firestoreCarpoolID,
+      int userID,
+      String status,
+      double earnings,
+      ) async {
+    try {
+      // Step 1: Fetch carpool details from Firestore using the document ID
+      final carpoolDoc = await FirebaseFirestore.instance
+          .collection('carpools')
+          .doc(firestoreCarpoolID)
+          .get();
 
+      if (!carpoolDoc.exists) {
+        throw Exception('Carpool not found in Firestore.');
+      }
+
+      final data = carpoolDoc.data()!;
+      final pickUpPoint = data['pickUpPoint'] ?? 'Unknown';
+      final dropOffPoint = data['dropOffPoint'] ?? 'Unknown';
+      final date = data['date'] ?? DateTime.now().toIso8601String();
+      final time = data['time'] ?? DateTime.now().toIso8601String();
+
+      // Step 2: Compose full history entry
+      final historyData = {
+        'carpoolID': firestoreCarpoolID,
+        'userID': userID,
+        'status': status,
+        'earnings': earnings,
+        'pickUpPoint': pickUpPoint,
+        'dropOffPoint': dropOffPoint,
+        'date': date,
+        'time': time,
+      };
+
+      // Step 3: Insert into Firestore carpool_history collection
+      await FirebaseFirestore.instance
+          .collection('carpool_history')
+          .add(historyData);
+
+      print('✅ Carpool history stored in Firestore');
+    } catch (e) {
+      print('❌ Error storing carpool history in Firestore: $e');
+      throw Exception('Failed to add carpool history');
+    }
+  }
+
+  Future<void> syncCarpoolHistoryFromFirebaseToSQLite() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('carpool_history')
+          .get();
+
+      final db = await database;
+
+      for (var doc in snapshot.docs) {
+        final historyData = doc.data() as Map<String, dynamic>;
+        historyData['firestoreID'] = doc.id;
+
+        // Check if the history entry exists in SQLite
+        final existingEntry = await db.query(
+          'carpool_history',
+          where: 'firestoreID = ?',
+          whereArgs: [doc.id],
+        );
+
+        if (existingEntry.isEmpty) {
+          await db.insert(
+            'carpool_history',
+            historyData,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          print('Inserted carpool history ${doc.id}');
+        } else {
+          print('Skipped duplicate history ${doc.id}');
+        }
+      }
+
+      print('✅ Synced carpool history from Firestore');
+    } catch (e) {
+      print('❌ Error syncing history from Firestore: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>?> getCarpoolByFirestoreID(String firestoreID) async {
+    final db = await database;
+    final result = await db.query(
+      'carpools',
+      where: 'firestoreID = ?',
+      whereArgs: [firestoreID],
+    );
+    if (result.isNotEmpty) {
+      return result.first;
+    }
+    return null;
+  }
 
 }

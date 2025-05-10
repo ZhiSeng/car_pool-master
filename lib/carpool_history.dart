@@ -1,8 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'database_helper.dart';
+import 'database_helper.dart';  // Ensure correct import for your DatabaseHelper
+import 'package:sqflite/sqflite.dart';
 
 class CarpoolHistoryPage extends StatefulWidget {
-  const CarpoolHistoryPage({Key? key}) : super(key: key);
+  final int userID;
+
+  const CarpoolHistoryPage({Key? key, required this.userID}) : super(key: key);
 
   @override
   _CarpoolHistoryPageState createState() => _CarpoolHistoryPageState();
@@ -14,12 +18,17 @@ class _CarpoolHistoryPageState extends State<CarpoolHistoryPage> {
   @override
   void initState() {
     super.initState();
-    _loadCarpoolHistory();
+    // Sync history from Firebase to SQLite, then load it from SQLite
+    DatabaseHelper.instance.syncCarpoolHistoryFromFirebaseToSQLite().then((_) {
+      _loadCarpoolHistory();
+    });
   }
 
+  // Method to sync carpool history from Firebase to SQLite
+
+  // Fetch carpool history for the user (completed or canceled)
   Future<void> _loadCarpoolHistory() async {
-    int userID = 1;  // Replace with actual userID (get from authentication)
-    final historyData = await DatabaseHelper.instance.getCarpoolHistory(userID);
+    final historyData = await DatabaseHelper.instance.getCarpoolHistory(widget.userID);
 
     setState(() {
       carpoolHistory = historyData;
@@ -33,14 +42,27 @@ class _CarpoolHistoryPageState extends State<CarpoolHistoryPage> {
         title: Text('Carpool History'),
       ),
       body: carpoolHistory.isEmpty
-          ? Center(child: Text('No carpool history available'))
+          ? Center(child: CircularProgressIndicator()) // Show loading indicator when no data
           : ListView.builder(
         itemCount: carpoolHistory.length,
         itemBuilder: (context, index) {
-          final history = carpoolHistory[index];
-          return ListTile(
-            title: Text('Carpool ID: ${history['carpoolID']}'),
-            subtitle: Text('Status: ${history['status']}, Earnings: RM ${history['earnings']}'),
+          final carpool = carpoolHistory[index];
+          return Card(
+            margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            child: ListTile(
+              title: Text('${carpool['pickUpPoint']} → ${carpool['dropOffPoint']}'),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Date: ${carpool['date']}'),
+                  Text('Time: ${carpool['time']}'),
+                  Text('Earnings: \$${carpool['earnings']}'),
+                ],
+              ),
+              tileColor: carpool['status'] == 'completed'
+                  ? Colors.green[100]
+                  : Colors.grey[300],
+            ),
           );
         },
       ),

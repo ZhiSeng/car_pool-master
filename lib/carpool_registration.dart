@@ -36,6 +36,17 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
   final _carColorController = TextEditingController(); // Car Color TextField
   final _carModelController = TextEditingController(); // Car Model TextField
 
+  // Dropdown list for pick-up and drop-off points
+  final List<String> locations = [
+    'East Campus Gate',
+    'TARUMT Main Gate',
+    'PV9',
+    'PV15',
+    'Setapak Central Mall',
+    'PV10',
+    'PV12',
+  ];
+
   String _selectedPickUp = 'East Campus Gate';
   String _selectedDropOff = 'TARUMT Main Gate';
 
@@ -205,7 +216,7 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
     _showSuccessDialog();
   }
 
-  @override
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -231,7 +242,7 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
                           _selectedPickUp = newValue!;
                         });
                       },
-                      items: CarpoolRegistrationPage.locations.map<DropdownMenuItem<String>>((
+                      items: locations.map<DropdownMenuItem<String>>((
                           String value) {
                         return DropdownMenuItem<String>(
                           value: value,
@@ -256,7 +267,7 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
                           _selectedDropOff = newValue!;
                         });
                       },
-                      items: CarpoolRegistrationPage.locations.map<DropdownMenuItem<String>>((
+                      items: locations.map<DropdownMenuItem<String>>((
                           String value) {
                         return DropdownMenuItem<String>(
                           value: value,
@@ -376,7 +387,7 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
       )
           : _selectedIndex == 1
           ? RegisteredCarpoolPage(userID: widget.userID) // Pass userID here
-          : CarpoolHistoryPage(),
+          : CarpoolHistoryPage(userID: widget.userID),
       // Assuming CarpoolHistoryPage doesn't need userID
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
