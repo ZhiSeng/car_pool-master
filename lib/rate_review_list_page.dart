@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'database_helper.dart';
 import 'rate_driver_page.dart';
 
+
 class RateReviewListPage extends StatefulWidget {
   final int userID;
 
@@ -12,7 +13,7 @@ class RateReviewListPage extends StatefulWidget {
 }
 
 class _RateReviewListPageState extends State<RateReviewListPage> {
-  List<Map<String, dynamic>> completedDrivers = [];
+  List<Map<String, dynamic>> completedRides = [];
 
   @override
   void initState() {
@@ -21,9 +22,10 @@ class _RateReviewListPageState extends State<RateReviewListPage> {
   }
 
   Future<void> _loadCompletedRides() async {
-    final result = await DatabaseHelper.instance.getCompletedDriversForRating(widget.userID);
+    // Fetch completed rides where the user is the passenger
+    final result = await DatabaseHelper.instance.getCompletedRidesForPassenger(widget.userID);
     setState(() {
-      completedDrivers = result;
+      completedRides = result;
     });
   }
 
@@ -31,12 +33,12 @@ class _RateReviewListPageState extends State<RateReviewListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Rate & Review Drivers')),
-      body: completedDrivers.isEmpty
+      body: completedRides.isEmpty
           ? Center(child: Text('No completed rides to rate.'))
           : ListView.builder(
-        itemCount: completedDrivers.length,
+        itemCount: completedRides.length,
         itemBuilder: (context, index) {
-          final ride = completedDrivers[index];
+          final ride = completedRides[index];
           return ListTile(
             title: Text('Driver: ${ride['driverName']}'),
             subtitle: Text('Carpool ID: ${ride['carpoolID']}'),

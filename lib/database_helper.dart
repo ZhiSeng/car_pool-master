@@ -607,18 +607,18 @@ class DatabaseHelper {
   }
 
   // Get list of drivers from completed rides for rating
-  Future<List<Map<String, dynamic>>> getCompletedDriversForRating(
-      int userID,
-      ) async {
+  // Fetch completed rides for a passenger to rate the driver
+  Future<List<Map<String, dynamic>>> getCompletedRidesForPassenger(int userID) async {
     final db = await database;
 
     return await db.rawQuery(
       '''
-    SELECT ch.id as historyID, cp.id as carpoolID, cp.userID as driverID, u.username as driverName
-    FROM carpool_history ch
-    JOIN carpools cp ON ch.carpoolID = cp.id
-    JOIN users u ON cp.userID = u.userID
-    WHERE ch.userID = ? AND ch.status = 'completed'
+  SELECT ch.id as historyID, cp.id as carpoolID, cp.userID as driverID, u.username as driverName
+  FROM carpool_history ch
+  JOIN carpools cp ON ch.carpoolID = cp.id
+  JOIN users u ON cp.userID = u.userID
+  JOIN rides r ON r.carpoolID = cp.id
+  WHERE r.userID = ? AND r.status = 'completed'
   ''',
       [userID],
     );
