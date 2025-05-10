@@ -110,10 +110,41 @@ class _VoucherManagementScreenState extends State<VoucherManagementScreen> {
     await loadVouchers();
   }
 
+  void _confirmLogout() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Confirm Logout'),
+        content: Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              Navigator.of(context).pushReplacementNamed('/adminLogin');
+            },
+            child: Text('Yes'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Voucher Management')),
+      appBar: AppBar(
+        title: Text('Voucher Management'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout),
+            onPressed: _confirmLogout,
+          )
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

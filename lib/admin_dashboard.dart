@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'database_helper.dart';
 import 'voucher_management_screen.dart';
 
@@ -16,6 +17,29 @@ class _AdminDashboardState extends State<AdminDashboard> {
     });
   }
 
+  void _confirmLogout() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Confirm Logout'),
+        content: Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              Navigator.of(context).pushReplacementNamed('/adminLogin');
+            },
+            child: Text('Yes'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -24,9 +48,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         actions: [
           IconButton(
             icon: Icon(Icons.logout),
-            onPressed: () {
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            },
+            onPressed: _confirmLogout,
           ),
         ],
       ),
@@ -158,4 +180,4 @@ class _AdminDashboardState extends State<AdminDashboard> {
       child: Text('Admin Settings - Coming Soon'),
     );
   }
-} 
+}
