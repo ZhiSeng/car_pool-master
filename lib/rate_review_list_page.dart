@@ -51,17 +51,30 @@ class _RateReviewListPageState extends State<RateReviewListPage> {
                 title: Text('Driver: ${ride['driverName']}', style: TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: Text('Carpool ID: ${ride['carpoolID']}'),
                 trailing: Icon(Icons.star_border, color: Colors.blueAccent),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => RateDriverPage(
-                        driverID: ride['driverID'],
-                        driverName: ride['driverName'],
-                        carpoolID: ride['carpoolID'],
+                onTap: () async {
+                  // Check if the passenger has already rated
+                  bool hasRated = await DatabaseHelper.instance.hasPassengerRatedDriver(
+                      widget.userID, ride['driverID'], ride['carpoolID']);
+
+                  if (hasRated) {
+                    // Show a message if the user has already rated
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('You have already rated this driver!'),
+                      backgroundColor: Colors.redAccent,
+                    ));
+                  } else {
+                    // Navigate to the rate driver page if not rated yet
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => RateDriverPage(
+                          driverID: ride['driverID'],
+                          driverName: ride['driverName'],
+                          carpoolID: ride['carpoolID'],
+                        ),
                       ),
-                    ),
-                  );
+                    );
+                  }
                 },
               ),
             ),

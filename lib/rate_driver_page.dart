@@ -4,13 +4,13 @@ import 'database_helper.dart';
 class RateDriverPage extends StatefulWidget {
   final int driverID;
   final String driverName;
-  final int carpoolID;  // Added carpoolID to link the ride between the driver and passenger
+  final int carpoolID;
 
   const RateDriverPage({
     super.key,
     required this.driverID,
     required this.driverName,
-    required this.carpoolID,  // Initialize carpoolID
+    required this.carpoolID,
   });
 
   @override
@@ -19,6 +19,23 @@ class RateDriverPage extends StatefulWidget {
 
 class _RateDriverPageState extends State<RateDriverPage> {
   int selectedRating = 0;  // Store the selected rating (1-5 stars)
+  bool hasRated = false;   // Flag to check if the user has already rated
+
+  @override
+  void initState() {
+    super.initState();
+    _checkIfAlreadyRated();
+  }
+
+  // Check if the passenger has already rated the driver
+  Future<void> _checkIfAlreadyRated() async {
+    bool rated = await DatabaseHelper.instance.hasPassengerRatedDriver(
+        widget.driverID, widget.driverID, widget.carpoolID);
+
+    setState(() {
+      hasRated = rated;
+    });
+  }
 
   void _submitRating() async {
     if (selectedRating == 0) {
@@ -88,10 +105,10 @@ class _RateDriverPageState extends State<RateDriverPage> {
             ),
             SizedBox(height: 40),
 
-            // Submit button to save the rating
+            // If the passenger has already rated, disable the rating functionality
             ElevatedButton(
-              onPressed: _submitRating,
-              child: Text("Rate", style: TextStyle(fontWeight: FontWeight.bold)),
+              onPressed: hasRated ? null : _submitRating,
+              child: Text(hasRated ? "You have already rated this driver" : "Rate", style: TextStyle(fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blueAccent,
                 foregroundColor: Colors.white,
