@@ -4,6 +4,7 @@ import 'database_helper.dart';
 import 'profile_page.dart';
 import 'rate_review_list_page.dart';
 import 'find_a_ride.dart';
+import 'eco_points_voucher_page.dart';
 
 class CarpoolMainPage extends StatefulWidget {
   final int userID;
@@ -170,6 +171,27 @@ class _CarpoolMainPageState extends State<CarpoolMainPage> {
                   ),
                   child: Text('Rate & Review', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 ),
+                SizedBox(height: 20),
+
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EcoPointsAndVoucherPage(userID: widget.userID),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    minimumSize: Size(double.infinity, 60),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                  ),
+                  child: Text('EcoPoints & Vouchers', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                ),
+                SizedBox(height: 20),
               ],
             ),
           ),
@@ -178,3 +200,4 @@ class _CarpoolMainPageState extends State<CarpoolMainPage> {
     );
   }
 }
+

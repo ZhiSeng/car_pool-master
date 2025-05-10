@@ -30,8 +30,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.of(ctx).pop();
-              Navigator.of(context).pushReplacementNamed('/adminLogin');
+              Navigator.of(ctx).pop(); // Close the dialog
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                '/adminLogin',
+                    (route) => false, // Clear all previous routes
+              );
             },
             child: Text('Yes'),
           ),
@@ -67,7 +70,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: ListTile(
                 leading: Icon(Icons.card_giftcard, size: 40, color: Colors.blue),
-                title: Text('Voucher Management', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500)),
+                title: Text(
+                  'Voucher Management',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+                ),
                 trailing: Icon(Icons.arrow_forward_ios),
                 onTap: () {
                   Navigator.push(
@@ -149,14 +155,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              title,
-              style: TextStyle(fontSize: 18),
-            ),
-            Text(
-              value,
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
+            Text(title, style: TextStyle(fontSize: 18)),
+            Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -164,20 +164,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildUsersList() {
-    return Center(
-      child: Text('Users Management - Coming Soon'),
-    );
+    return Center(child: Text('Users Management - Coming Soon'));
   }
 
   Widget _buildRidesList() {
-    return Center(
-      child: Text('Rides Management - Coming Soon'),
-    );
+    return Center(child: Text('Rides Management - Coming Soon'));
   }
 
   Widget _buildSettings() {
-    return Center(
-      child: Text('Admin Settings - Coming Soon'),
-    );
+    return Center(child: Text('Admin Settings - Coming Soon'));
   }
 }

@@ -44,6 +44,8 @@ class DatabaseHelper {
       )
     ''');
 
+
+
     // Create the carpools table
     await db.execute('''
     CREATE TABLE carpools (
@@ -265,6 +267,7 @@ class DatabaseHelper {
     try {
       final snapshot = await FirebaseFirestore.instance.collection('users').get();
       final db = await database;
+
 
       for (var doc in snapshot.docs) {
         final userData = doc.data();
@@ -1061,15 +1064,13 @@ class DatabaseHelper {
     final db = await database;
 
     try {
-      // Step 1: Update ecoPoints in SQLite
       await db.update(
-        'users', // Assuming 'users' is the table where user data is stored
-        {'ecoPoints': ecoPoints}, // Update the ecoPoints column
-        where: 'userID = ?', // Where condition to find the user by their ID
+        'users',
+        {'ecoPoints': ecoPoints},
+        where: 'userID = ?',
         whereArgs: [userID],
       );
 
-      // Step 2: Update ecoPoints in Firestore
       final user = await db.query(
         'users',
         where: 'userID = ?',
@@ -1084,22 +1085,19 @@ class DatabaseHelper {
           return;
         }
 
-        // Get the corresponding Firestore user document reference
         final userDocRef = FirebaseFirestore.instance.collection('users').doc(firestoreID);
 
-        // Update the ecoPoints field in Firestore
         await userDocRef.update({
           'ecoPoints': ecoPoints,
         });
 
-        print('User ecoPoints updated successfully in both SQLite and Firestore');
-      } else {
-        print('User not found in SQLite');
+        print('User ecoPoints updated successfully in Firestore');
       }
     } catch (e) {
       print('Error updating ecoPoints: $e');
     }
   }
+
 
   Future<int> insertVoucher(Map<String, dynamic> voucher) async {
     final db = await database;
@@ -1124,13 +1122,21 @@ class DatabaseHelper {
   Future<int> updateVoucher(int id, Map<String, dynamic> voucher) async {
     final db = await database;
     try {
-      // Update Firestore
-      await FirebaseFirestore.instance
-          .collection('vouchers')
-          .doc(voucher['firestoreID'])
-          .update(voucher);
+      if (voucher['firestoreID'] != null) {
+        await FirebaseFirestore.instance
+            .collection('vouchers')
+            .doc(voucher['firestoreID'])
+            .update({
+          'quantity': voucher['quantity'],
+          'redeemedBy': voucher['redeemedBy'],
+          'name': voucher['name'],
+          'description': voucher['description'],
+          'startDate': voucher['startDate'],
+          'endDate': voucher['endDate'],
+          'ecoPointsRequired': voucher['ecoPointsRequired'],
+        });
+      }
 
-      // Update SQLite
       return await db.update(
         'vouchers',
         voucher,
@@ -1142,6 +1148,8 @@ class DatabaseHelper {
       return -1;
     }
   }
+
+
 
   Future<int> deleteVoucher(int id, String firestoreID) async {
     final db = await database;
@@ -1260,5 +1268,6 @@ class DatabaseHelper {
     }
     return null;
   }
+
 
 }
