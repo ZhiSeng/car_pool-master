@@ -612,21 +612,22 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getCompletedRidesForPassenger(int userID) async {
     final db = await database;
 
+    // Fetch the completed rides where the user is a passenger
     return await db.rawQuery(
       '''
-  SELECT ch.id as historyID, cp.id as carpoolID, cp.userID as driverID, u.username as driverName
-  FROM carpool_history ch
-  JOIN carpools cp ON ch.carpoolID = cp.id
-  JOIN users u ON cp.userID = u.userID
-  JOIN rides r ON r.carpoolID = cp.id
-  WHERE r.userID = ? AND r.status = 'completed'
-  ''',
+    SELECT r.rideID, r.carpoolID, r.userID as passengerID, cp.userID as driverID, u.username as driverName, r.status
+    FROM rides r
+    JOIN carpools cp ON r.carpoolID = cp.id
+    JOIN users u ON cp.userID = u.userID
+    WHERE r.userID = ? AND r.status = 'completed'
+    ''',
       [userID],
     );
   }
 
   // Submit or update driver's average rating and review count
-  Future<void> submitDriverRating(int driverID, double newRating) async {
+  // Submit or update driver's average rating and review count
+  Future<void> submitDriverRating(int driverID, double newRating, int carpoolID) async {
     final db = await database;
 
     final result = await db.query(
@@ -638,20 +639,41 @@ class DatabaseHelper {
 
     if (result.isNotEmpty) {
       final current = result.first;
-      double oldRating =
-      current['rating'] != null ? current['rating'] as double : 0.0;
-      int reviewCount =
-      current['reviewCount'] != null ? current['reviewCount'] as int : 0;
+      double oldRating = current['rating'] != null ? current['rating'] as double : 0.0;
+      int reviewCount = current['reviewCount'] != null ? current['reviewCount'] as int : 0;
 
-      double updatedRating =
-          ((oldRating * reviewCount) + newRating) / (reviewCount + 1);
+      double updatedRating = ((oldRating * reviewCount) + newRating) / (reviewCount + 1);
 
+      // Update in SQLite
       await db.update(
         'users',
         {'rating': updatedRating, 'reviewCount': reviewCount + 1},
         where: 'userID = ?',
         whereArgs: [driverID],
       );
+
+      // Update in Firestore
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('userID', isEqualTo: driverID)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        final docRef = snapshot.docs.first.reference;
+        await docRef.update({
+          'rating': updatedRating,
+          'reviewCount': reviewCount + 1,
+        });
+      }
+
+      // Log the ride as completed in carpool_history
+      await db.insert('carpool_history', {
+        'carpoolID': carpoolID, // Use carpoolID here to track the completed ride
+        'userID': driverID,
+        'status': 'completed',
+        'earnings': 0.0,
+      });
     }
   }
 
