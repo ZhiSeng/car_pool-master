@@ -677,21 +677,6 @@ class DatabaseHelper {
     }
   }
 
-  // Method to check if the passenger has already rated the driver
-  Future<bool> hasPassengerRatedDriver(int userID, int driverID, int carpoolID) async {
-    final db = await database;
-
-    // Query the rides table to check if the rating exists for this driver and carpool
-    final result = await db.query(
-      'rides',
-      where: 'userID = ? AND carpoolID = ? AND status = ?',
-      whereArgs: [userID, carpoolID, 'completed'], // Check if the status is completed
-    );
-
-    return result.isNotEmpty;
-  }
-
-
   // Fetch data from Firestore and overwrite SQLite
   Future<void> updateSQLiteFromFirestore() async {
     try {
