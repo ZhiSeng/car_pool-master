@@ -14,6 +14,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final TextEditingController confirmPasswordController = TextEditingController();
   final TextEditingController securityAnswerController = TextEditingController();
   String selectedQuestion = 'What is your pet name?';
+  bool _isPasswordVisible = false; // Boolean for password visibility
+  bool _isConfirmPasswordVisible = false; // Boolean for confirm password visibility
 
   // Function to register the user
   void _register() async {
@@ -25,6 +27,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
     if (username.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty || securityAnswer.isEmpty) {
       _showMessage("Please fill all fields!");
+      return;
+    }
+
+    // Email validation check
+    if (!RegExp(r"^[a-zA-Z0-9._%+-]+@(gmail\.com|hotmail\.com|student\.tarc\.edu\.my)$").hasMatch(email)) {
+      _showMessage("Please enter a valid email.");
+      return;
+    }
+
+    // Password validation check (at least 6 characters)
+    if (password.length < 6) {
+      _showMessage("Password must be at least 6 characters!");
       return;
     }
 
@@ -71,15 +85,103 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Register")),
-      body: Padding(
+      appBar: AppBar(
+        title: Text("Register"),
+        backgroundColor: Color(0xFF1976D2), // Consistent with the app theme
+      ),
+      body: SingleChildScrollView( // Makes the screen scrollable
         padding: EdgeInsets.all(16.0),
         child: Column(
           children: [
-            TextField(controller: usernameController, decoration: InputDecoration(labelText: 'Username')),
-            TextField(controller: emailController, decoration: InputDecoration(labelText: 'Email')),
-            TextField(controller: passwordController, decoration: InputDecoration(labelText: 'Password'), obscureText: true),
-            TextField(controller: confirmPasswordController, decoration: InputDecoration(labelText: 'Confirm Password'), obscureText: true),
+            // Username Input
+            TextField(
+              controller: usernameController,
+              decoration: InputDecoration(
+                labelText: 'Username',
+                labelStyle: TextStyle(color: Colors.blue), // Consistent color
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.black54),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.blue),
+                ),
+              ),
+            ),
+            SizedBox(height: 20),
+
+            // Email Input
+            TextField(
+              controller: emailController,
+              decoration: InputDecoration(
+                labelText: 'Email',
+                labelStyle: TextStyle(color: Colors.blue), // Consistent color
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.black54),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.blue),
+                ),
+              ),
+            ),
+            SizedBox(height: 20),
+
+            // Password Input with Eye Icon
+            TextField(
+              controller: passwordController,
+              obscureText: !_isPasswordVisible,
+              decoration: InputDecoration(
+                labelText: 'Password',
+                labelStyle: TextStyle(color: Colors.blue), // Consistent color
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.black54),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.blue),
+                ),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                    color: Colors.blue,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _isPasswordVisible = !_isPasswordVisible;
+                    });
+                  },
+                ),
+              ),
+            ),
+            SizedBox(height: 20),
+
+            // Confirm Password Input with Eye Icon
+            TextField(
+              controller: confirmPasswordController,
+              obscureText: !_isConfirmPasswordVisible,
+              decoration: InputDecoration(
+                labelText: 'Confirm Password',
+                labelStyle: TextStyle(color: Colors.blue), // Consistent color
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.black54),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.blue),
+                ),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                    color: Colors.blue,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                    });
+                  },
+                ),
+              ),
+            ),
+            SizedBox(height: 20),
+
+            // Dropdown for Security Question
             DropdownButtonFormField<String>(
               value: selectedQuestion,
               decoration: InputDecoration(labelText: 'Select Security Question'),
@@ -93,9 +195,27 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 });
               },
             ),
-            TextField(controller: securityAnswerController, decoration: InputDecoration(labelText: 'Security Answer')),
             SizedBox(height: 20),
-            ElevatedButton(onPressed: _register, child: Text('Sign Up')),
+
+            // Security Answer Input
+            TextField(
+              controller: securityAnswerController,
+              decoration: InputDecoration(labelText: 'Security Answer'),
+            ),
+            SizedBox(height: 20),
+
+            // Sign Up Button
+            ElevatedButton(
+              onPressed: _register,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue, // Consistent button color
+                minimumSize: Size(double.infinity, 50),
+              ),
+              child: Text('Sign Up', style: TextStyle(fontSize: 18)),
+            ),
+            SizedBox(height: 20),
+
+            // Back to Login
             TextButton(
               onPressed: () {
                 Navigator.pushReplacement(

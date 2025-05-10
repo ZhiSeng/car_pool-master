@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'database_helper.dart';
 import 'login_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProfilePage extends StatefulWidget {
   final int userID;
@@ -14,6 +15,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final _formKey = GlobalKey<FormState>();
   TextEditingController usernameController = TextEditingController();
+  TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
   TextEditingController confirmPasswordController = TextEditingController();
   TextEditingController securityAnswerController = TextEditingController();
@@ -23,6 +25,9 @@ class _ProfilePageState extends State<ProfilePage> {
   int ecoPoints = 0;
 
   String selectedQuestion = 'What is your pet name?';
+
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
 
   @override
   void initState() {
@@ -36,6 +41,7 @@ class _ProfilePageState extends State<ProfilePage> {
     if (user != null) {
       setState(() {
         usernameController.text = user['username'] ?? '';
+        emailController.text = user['email'] ?? '';
         passwordController.text = user['password'] ?? '';
         securityAnswerController.text = user['security_answer'] ?? '';
         selectedQuestion = user['security_question'] ?? selectedQuestion;
@@ -57,15 +63,40 @@ class _ProfilePageState extends State<ProfilePage> {
         return;
       }
 
-      await DatabaseHelper.instance.updateUserData(widget.userID.toString(), {
+      // Prepare data to update
+      Map<String, dynamic> updates = {
         'username': usernameController.text.trim(),
+        'email': emailController.text.trim(),
         'password': password,
         'security_question': selectedQuestion,
         'security_answer': securityAnswerController.text.trim(),
-      });
+      };
 
+      // Update data in SQLite
+      await DatabaseHelper.instance.updateUserData(widget.userID.toString(), updates);
 
-      _showMessage("Profile updated successfully!", isSuccess: true);
+      // Now update Firestore directly using the userID
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('userID', isEqualTo: widget.userID)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        // Firestore update
+        final docRef = snapshot.docs.first.reference;
+        await docRef.update({
+          'username': usernameController.text.trim(),
+          'email': emailController.text.trim(),
+          'password': password,
+          'security_question': selectedQuestion,
+          'security_answer': securityAnswerController.text.trim(),
+        });
+
+        _showMessage("Profile updated successfully!", isSuccess: true);
+      } else {
+        _showMessage("User not found in Firestore.");
+      }
     }
   }
 
@@ -80,10 +111,12 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("My Profile"),
+        title: Text("My Profile", style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.blueAccent,
         actions: [
+          // Ensure the IconButton for logout is placed correctly
           IconButton(
-            icon: Icon(Icons.logout),
+            icon: Icon(Icons.logout, color: Colors.white),
             onPressed: () {
               Navigator.pushAndRemoveUntil(
                 context,
@@ -91,7 +124,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     (route) => false,
               );
             },
-          )
+          ),
         ],
       ),
       body: Padding(
@@ -100,65 +133,119 @@ class _ProfilePageState extends State<ProfilePage> {
           key: _formKey,
           child: ListView(
             children: [
-              Text("Editable Details", style: TextStyle(fontWeight: FontWeight.bold)),
-              TextFormField(
-                controller: usernameController,
-                decoration: InputDecoration(labelText: "Username"),
-                validator: (value) => value!.isEmpty ? "Enter username" : null,
-              ),
-              TextFormField(
-                controller: passwordController,
-                decoration: InputDecoration(labelText: "Password"),
-                obscureText: true,
-                validator: (value) => value!.isEmpty ? "Enter password" : null,
-              ),
-              TextFormField(
-                controller: confirmPasswordController,
-                decoration: InputDecoration(labelText: "Confirm Password"),
-                obscureText: true,
-                validator: (value) => value!.isEmpty ? "Confirm your password" : null,
-              ),
-              DropdownButtonFormField<String>(
-                value: selectedQuestion,
-                decoration: InputDecoration(labelText: 'Security Question'),
-                items: [
-                  'What is your pet name?',
-                  'What is your mother\'s maiden name?',
-                  'What was your first school?'
-                ].map((q) => DropdownMenuItem(value: q, child: Text(q))).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    selectedQuestion = value!;
-                  });
-                },
-              ),
-              TextFormField(
-                controller: securityAnswerController,
-                decoration: InputDecoration(labelText: "Security Answer"),
-                validator: (value) => value!.isEmpty ? "Enter answer" : null,
-              ),
+              Text("Editable Details", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+              _buildTextFormField(usernameController, "Username"),
+              _buildTextFormField(emailController, "Email"),
+              _buildPasswordFormField(passwordController, "Password", _isPasswordVisible),
+              _buildPasswordFormField(confirmPasswordController, "Confirm Password", _isConfirmPasswordVisible),
+              _buildDropdownMenu(),
+              _buildTextFormField(securityAnswerController, "Security Answer"),
+
               SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _saveProfile,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent,
+                  padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  textStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
                 child: Text("Save Changes"),
               ),
+
               Divider(height: 40),
-              Text("Read-Only Info", style: TextStyle(fontWeight: FontWeight.bold)),
-              ListTile(
-                title: Text("Rating"),
-                trailing: Text(rating.toStringAsFixed(1)),
-              ),
-              ListTile(
-                title: Text("Review Count"),
-                trailing: Text(reviewCount.toString()),
-              ),
-              ListTile(
-                title: Text("Eco Points"),
-                trailing: Text(ecoPoints.toString()),
-              ),
+              Text("Read-Only Info", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+              _buildReadOnlyTile("Rating", rating.toStringAsFixed(1)),
+              _buildReadOnlyTile("Review Count", reviewCount.toString()),
+              _buildReadOnlyTile("Eco Points", ecoPoints.toString()),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTextFormField(TextEditingController controller, String label) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10.0),
+      child: TextFormField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: Colors.blueAccent),
+          border: OutlineInputBorder(),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.blueAccent),
+          ),
+        ),
+        validator: (value) => value!.isEmpty ? "Enter $label" : null,
+      ),
+    );
+  }
+
+  Widget _buildPasswordFormField(TextEditingController controller, String label, bool visibility) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10.0),
+      child: TextFormField(
+        controller: controller,
+        obscureText: !visibility,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: Colors.blueAccent),
+          border: OutlineInputBorder(),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.blueAccent),
+          ),
+          suffixIcon: IconButton(
+            icon: Icon(
+              visibility ? Icons.visibility : Icons.visibility_off,
+              color: Colors.blueAccent,
+            ),
+            onPressed: () {
+              setState(() {
+                visibility = !visibility;
+              });
+            },
+          ),
+        ),
+        validator: (value) => value!.isEmpty ? "Enter $label" : null,
+      ),
+    );
+  }
+
+  Widget _buildDropdownMenu() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10.0),
+      child: DropdownButtonFormField<String>(
+        value: selectedQuestion,
+        decoration: InputDecoration(
+          labelText: "Security Question",
+          labelStyle: TextStyle(color: Colors.blueAccent),
+          border: OutlineInputBorder(),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.blueAccent),
+          ),
+        ),
+        items: [
+          'What is your pet name?',
+          'What is your mother\'s maiden name?',
+          'What was your first school?'
+        ].map((q) => DropdownMenuItem(value: q, child: Text(q))).toList(),
+        onChanged: (value) {
+          setState(() {
+            selectedQuestion = value!;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyTile(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5.0),
+      child: ListTile(
+        title: Text(label),
+        trailing: Text(value),
       ),
     );
   }

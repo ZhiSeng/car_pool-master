@@ -234,8 +234,7 @@ class DatabaseHelper {
     final db = await database;
 
     // Update in Firestore
-    final snapshot =
-    await FirebaseFirestore.instance
+    final snapshot = await FirebaseFirestore.instance
         .collection('users')
         .where('email', isEqualTo: email)
         .limit(1)
@@ -245,7 +244,7 @@ class DatabaseHelper {
       await FirebaseFirestore.instance
           .collection('users')
           .doc(snapshot.docs.first.id)
-          .update(updates);
+          .update(updates);  // Update all fields
     }
 
     // Then update in SQLite

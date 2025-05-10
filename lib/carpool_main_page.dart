@@ -16,6 +16,7 @@ class CarpoolMainPage extends StatefulWidget {
 
 class _CarpoolMainPageState extends State<CarpoolMainPage> {
   String username = "";
+  int _selectedIndex = 0;
 
   @override
   void initState() {
@@ -38,11 +39,19 @@ class _CarpoolMainPageState extends State<CarpoolMainPage> {
     await DatabaseHelper.instance.syncRidesFromFirestoreToSQLite();
   }
 
+  // Function to handle Bottom Navigation
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Carpool Main Page'),
+        backgroundColor: Colors.blueAccent, // Same as Find a Ride
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -75,45 +84,95 @@ class _CarpoolMainPageState extends State<CarpoolMainPage> {
           )
         ],
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('Welcome to Carpool App!', style: TextStyle(fontSize: 24)),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                // Pass userID to CarpoolRegistrationPage
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CarpoolRegistrationPage(userID: widget.userID), // Pass userID here
+      body: Container(
+        decoration: BoxDecoration(
+          color: Colors.white, // Background color like the login screen
+        ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              // Align items at the top of the screen
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Welcome Text - Move it up
+                SizedBox(height: 60), // Adjust height here to move text up
+                Text(
+                  'TARUMT Ride',
+                  style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+                ),
+                Text(
+                  'Welcome to carpool App!',
+                  style: TextStyle(fontSize: 28, color: Colors.blue.shade700),
+                ),
+                SizedBox(height: 100), // Adjusted height for better visual spacing
+
+                // Register Carpool Button (Less rounded and thicker)
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            CarpoolRegistrationPage(userID: widget.userID),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent, // Button color
+                    minimumSize: Size(double.infinity, 60), // Thicker buttons
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15), // Less rounded corners
+                    ),
                   ),
-                );
-              },
-              child: Text('Register a Carpool'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => FindARidePage(userID: widget.userID)),
-                );
-              },
-              child: Text('Find a Ride'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => RateReviewListPage(userID: widget.userID),
+                  child: Text('Register a Carpool', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                ),
+                SizedBox(height: 20),
+
+                // Find a Ride Button (Less rounded and thicker)
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => FindARidePage(userID: widget.userID),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent, // Button color
+                    minimumSize: Size(double.infinity, 60), // Thicker buttons
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15), // Less rounded corners
+                    ),
                   ),
-                );
-              },
-              child: Text('Rate & Review'),
+                  child: Text('Find a Ride', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                ),
+                SizedBox(height: 20),
+
+                // Rate & Review Button (Less rounded and thicker)
+                ElevatedButton(
+                  onPressed: () async {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => RateReviewListPage(userID: widget.userID),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent, // Button color
+                    minimumSize: Size(double.infinity, 60), // Thicker buttons
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15), // Less rounded corners
+                    ),
+                  ),
+                  child: Text('Rate & Review', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

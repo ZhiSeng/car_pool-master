@@ -4,9 +4,10 @@ import 'carpool_main_page.dart';
 import 'registration_screen.dart';
 import 'retrieve_password_screen.dart';
 import 'admin_login_screen.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LoginScreen extends StatefulWidget {
+  const LoginScreen({Key? key}) : super(key: key);  // Added Key parameter
+
   @override
   _LoginScreenState createState() => _LoginScreenState();
 }
@@ -14,6 +15,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  bool _isPasswordVisible = false; // Boolean to toggle password visibility
   int _selectedIndex = 0;
 
   @override
@@ -39,23 +41,27 @@ class _LoginScreenState extends State<LoginScreen> {
     String password = passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
-      _showMessage('Please fill in both fields');
+      if (mounted) {
+        _showMessage('Please fill in both fields');
+      }
       return;
     }
 
     final user = await DatabaseHelper.instance.getUser(email);
     if (user != null && user['password'] == password) {
-      _showMessage('Login Successful!');
-
-      // Navigate to CarpoolMainPage after login
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => CarpoolMainPage(userID: user['userID']),
-        ),
-      );
+      if (mounted) {
+        _showMessage('Login Successful!');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CarpoolMainPage(userID: user['userID']),
+          ),
+        );
+      }
     } else {
-      _showMessage('Invalid Credentials');
+      if (mounted) {
+        _showMessage('Invalid email or password. Please try again.');
+      }
     }
   }
 
@@ -66,23 +72,72 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Login')),
+      appBar: AppBar(
+        title: Text('Login'),
+        backgroundColor: Color(0xFF1976D2), // Match the Find Ride theme
+      ),
       body: Padding(
         padding: EdgeInsets.all(16.0),
         child: Column(
           children: [
+            // Email Input
             TextField(
               controller: emailController,
-              decoration: InputDecoration(labelText: 'Email'),
+              decoration: InputDecoration(
+                labelText: 'Email',
+                labelStyle: TextStyle(color: Colors.blue), // Consistent color
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.black54),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.blue),
+                ),
+              ),
             ),
+            SizedBox(height: 20),
+
+            // Password Input with Eye Icon
             TextField(
               controller: passwordController,
-              decoration: InputDecoration(labelText: 'Password'),
-              obscureText: true,
+              obscureText: !_isPasswordVisible, // Toggle password visibility
+              decoration: InputDecoration(
+                labelText: 'Password',
+                labelStyle: TextStyle(color: Colors.blue), // Consistent color
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.black54),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.blue),
+                ),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _isPasswordVisible
+                        ? Icons.visibility
+                        : Icons.visibility_off,
+                    color: Colors.blue,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _isPasswordVisible = !_isPasswordVisible;
+                    });
+                  },
+                ),
+              ),
             ),
-            ElevatedButton(onPressed: _login, child: Text('Login')),
-
             SizedBox(height: 20),
+
+            // Login Button
+            ElevatedButton(
+              onPressed: _login,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue, // Consistent button color
+                minimumSize: Size(double.infinity, 50),
+              ),
+              child: Text('Login', style: TextStyle(fontSize: 18)),
+            ),
+            SizedBox(height: 20),
+
+            // Sign Up and Forgot Password
             TextButton(
               onPressed: () {
                 Navigator.push(
@@ -117,6 +172,9 @@ class _LoginScreenState extends State<LoginScreen> {
         ],
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
+        backgroundColor: Color(0xFF1976D2), // Matching color with app theme
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white70,
       ),
     );
   }
