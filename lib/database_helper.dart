@@ -69,8 +69,9 @@ class DatabaseHelper {
 
     // Create the carpool history table
     await db.execute('''
-     CREATE TABLE carpool_history (
-         id INTEGER PRIMARY KEY AUTOINCREMENT,
+    CREATE TABLE carpool_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    firestoreID TEXT,
     carpoolID INTEGER NOT NULL,
     userID INTEGER NOT NULL,
     status TEXT,
@@ -81,8 +82,8 @@ class DatabaseHelper {
     time TEXT,
     FOREIGN KEY(carpoolID) REFERENCES carpools(id),
     FOREIGN KEY(userID) REFERENCES users(userID)
-      )
-    ''');
+  )
+''');
 
 
     await db.execute('''
@@ -614,21 +615,22 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getCompletedRidesForPassenger(int userID) async {
     final db = await database;
 
+    // Fetch the completed rides where the user is a passenger
     return await db.rawQuery(
       '''
-  SELECT ch.id as historyID, cp.id as carpoolID, cp.userID as driverID, u.username as driverName
-  FROM carpool_history ch
-  JOIN carpools cp ON ch.carpoolID = cp.id
-  JOIN users u ON cp.userID = u.userID
-  JOIN rides r ON r.carpoolID = cp.id
-  WHERE r.userID = ? AND r.status = 'completed'
-  ''',
+    SELECT r.rideID, r.carpoolID, r.userID as passengerID, cp.userID as driverID, u.username as driverName, r.status
+    FROM rides r
+    JOIN carpools cp ON r.carpoolID = cp.id
+    JOIN users u ON cp.userID = u.userID
+    WHERE r.userID = ? AND r.status = 'completed'
+    ''',
       [userID],
     );
   }
 
   // Submit or update driver's average rating and review count
-  Future<void> submitDriverRating(int driverID, double newRating) async {
+  // Submit or update driver's average rating and review count
+  Future<void> submitDriverRating(int driverID, double newRating, int carpoolID) async {
     final db = await database;
 
     final result = await db.query(
@@ -640,20 +642,41 @@ class DatabaseHelper {
 
     if (result.isNotEmpty) {
       final current = result.first;
-      double oldRating =
-      current['rating'] != null ? current['rating'] as double : 0.0;
-      int reviewCount =
-      current['reviewCount'] != null ? current['reviewCount'] as int : 0;
+      double oldRating = current['rating'] != null ? current['rating'] as double : 0.0;
+      int reviewCount = current['reviewCount'] != null ? current['reviewCount'] as int : 0;
 
-      double updatedRating =
-          ((oldRating * reviewCount) + newRating) / (reviewCount + 1);
+      double updatedRating = ((oldRating * reviewCount) + newRating) / (reviewCount + 1);
 
+      // Update in SQLite
       await db.update(
         'users',
         {'rating': updatedRating, 'reviewCount': reviewCount + 1},
         where: 'userID = ?',
         whereArgs: [driverID],
       );
+
+      // Update in Firestore
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('userID', isEqualTo: driverID)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        final docRef = snapshot.docs.first.reference;
+        await docRef.update({
+          'rating': updatedRating,
+          'reviewCount': reviewCount + 1,
+        });
+      }
+
+      // Log the ride as completed in carpool_history
+      await db.insert('carpool_history', {
+        'carpoolID': carpoolID, // Use carpoolID here to track the completed ride
+        'userID': driverID,
+        'status': 'completed',
+        'earnings': 0.0,
+      });
     }
   }
 
@@ -1219,42 +1242,56 @@ class DatabaseHelper {
     }
   }
 
-  Future<void> syncCarpoolHistoryFromFirebaseToSQLite() async {
+  Future<void> syncCarpoolHistoryFromFirestoreToSQLite(int userID) async {
     try {
-      final snapshot = await FirebaseFirestore.instance
+      // Fetch data from Firestore collection 'carpool_history' for a specific user
+      QuerySnapshot snapshot = await FirebaseFirestore.instance
           .collection('carpool_history')
+          .where('userID', isEqualTo: userID) // Filter by userID
           .get();
-
       final db = await database;
 
+      // Loop through each Firestore document
       for (var doc in snapshot.docs) {
-        final historyData = doc.data() as Map<String, dynamic>;
-        historyData['firestoreID'] = doc.id;
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
 
-        // Check if the history entry exists in SQLite
-        final existingEntry = await db.query(
+        // Add the Firestore document ID to the data
+        data['firestoreID'] = doc.id;
+
+        // Check if the history entry already exists in SQLite using Firestore ID
+        final existingHistory = await db.query(
           'carpool_history',
           where: 'firestoreID = ?',
-          whereArgs: [doc.id],
+          whereArgs: [data['firestoreID']],
         );
 
-        if (existingEntry.isEmpty) {
+        if (existingHistory.isEmpty) {
+          // If the entry doesn't exist, insert it into SQLite
           await db.insert(
             'carpool_history',
-            historyData,
-            conflictAlgorithm: ConflictAlgorithm.replace,
+            data,
+            conflictAlgorithm: ConflictAlgorithm.replace,  // Replace existing data if conflict
           );
-          print('Inserted carpool history ${doc.id}');
+          print('Inserted carpool history: ${doc.id}');
         } else {
-          print('Skipped duplicate history ${doc.id}');
+          // If the entry already exists, update it in SQLite
+          await db.update(
+            'carpool_history',
+            data,
+            where: 'firestoreID = ?',
+            whereArgs: [data['firestoreID']],
+          );
+          print('Updated carpool history: ${doc.id}');
         }
       }
 
-      print('✅ Synced carpool history from Firestore');
+      print('✅ Carpool history synced from Firestore to SQLite.');
     } catch (e) {
-      print('❌ Error syncing history from Firestore: $e');
+      print('❌ Error syncing carpool history from Firestore: $e');
     }
   }
+
+
 
   Future<Map<String, dynamic>?> getCarpoolByFirestoreID(String firestoreID) async {
     final db = await database;

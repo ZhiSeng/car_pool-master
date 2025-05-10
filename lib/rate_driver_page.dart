@@ -4,15 +4,21 @@ import 'database_helper.dart';
 class RateDriverPage extends StatefulWidget {
   final int driverID;
   final String driverName;
+  final int carpoolID;  // Added carpoolID to link the ride between the driver and passenger
 
-  const RateDriverPage({super.key, required this.driverID, required this.driverName});
+  const RateDriverPage({
+    super.key,
+    required this.driverID,
+    required this.driverName,
+    required this.carpoolID,  // Initialize carpoolID
+  });
 
   @override
   _RateDriverPageState createState() => _RateDriverPageState();
 }
 
 class _RateDriverPageState extends State<RateDriverPage> {
-  int selectedRating = 0;
+  int selectedRating = 0;  // Store the selected rating (1-5 stars)
 
   void _submitRating() async {
     if (selectedRating == 0) {
@@ -22,15 +28,23 @@ class _RateDriverPageState extends State<RateDriverPage> {
       return;
     }
 
-    await DatabaseHelper.instance.submitDriverRating(widget.driverID, selectedRating.toDouble());
+    // Save the rating to the database, along with the associated carpoolID
+    await DatabaseHelper.instance.submitDriverRating(
+        widget.driverID,
+        selectedRating.toDouble(),
+        widget.carpoolID  // Pass the carpoolID for context
+    );
 
+    // Show a success message after submitting the rating
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text("Thanks for rating ${widget.driverName}!"),
     ));
 
+    // Pop the page and return to the previous screen
     Navigator.pop(context);
   }
 
+  // Function to build the star icons for rating
   Widget _buildStar(int index) {
     return IconButton(
       icon: Icon(
@@ -40,7 +54,7 @@ class _RateDriverPageState extends State<RateDriverPage> {
       ),
       onPressed: () {
         setState(() {
-          selectedRating = index;
+          selectedRating = index;  // Update selected rating when a star is clicked
         });
       },
     );
@@ -50,12 +64,14 @@ class _RateDriverPageState extends State<RateDriverPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Rate & Review Page'),
+        title: Text('Rate & Review Page', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.blueAccent,
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
+            // Display the driver's name with an icon
             Row(
               children: [
                 Icon(Icons.person, size: 30),
@@ -64,20 +80,25 @@ class _RateDriverPageState extends State<RateDriverPage> {
               ],
             ),
             SizedBox(height: 30),
+
+            // Create a row of star buttons for the user to click and rate the driver
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(5, (index) => _buildStar(index + 1)),
             ),
             SizedBox(height: 40),
+
+            // Submit button to save the rating
             ElevatedButton(
               onPressed: _submitRating,
-              child: Text("Rate"),
+              child: Text("Rate", style: TextStyle(fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
+                backgroundColor: Colors.blueAccent,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               ),
-            )
+            ),
           ],
         ),
       ),

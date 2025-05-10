@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'database_helper.dart';
 import 'rate_driver_page.dart';
 
-
 class RateReviewListPage extends StatefulWidget {
   final int userID;
 
@@ -32,28 +31,40 @@ class _RateReviewListPageState extends State<RateReviewListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Rate & Review Drivers')),
+      appBar: AppBar(
+        title: Text('Rate & Review Drivers', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.blueAccent,
+      ),
       body: completedRides.isEmpty
-          ? Center(child: Text('No completed rides to rate.'))
+          ? Center(child: Text('No completed rides to rate.', style: TextStyle(color: Colors.blueAccent)))
           : ListView.builder(
         itemCount: completedRides.length,
         itemBuilder: (context, index) {
           final ride = completedRides[index];
-          return ListTile(
-            title: Text('Driver: ${ride['driverName']}'),
-            subtitle: Text('Carpool ID: ${ride['carpoolID']}'),
-            trailing: Icon(Icons.star_border),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => RateDriverPage(
-                    driverID: ride['driverID'],
-                    driverName: ride['driverName'],
-                  ),
-                ),
-              );
-            },
+          return Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Card(
+              elevation: 4.0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: ListTile(
+                contentPadding: EdgeInsets.all(16.0),
+                title: Text('Driver: ${ride['driverName']}', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('Carpool ID: ${ride['carpoolID']}'),
+                trailing: Icon(Icons.star_border, color: Colors.blueAccent),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RateDriverPage(
+                        driverID: ride['driverID'],
+                        driverName: ride['driverName'],
+                        carpoolID: ride['carpoolID'],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           );
         },
       ),
