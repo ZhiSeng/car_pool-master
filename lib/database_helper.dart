@@ -94,6 +94,20 @@ class DatabaseHelper {
         FOREIGN KEY(userID) REFERENCES users(userID)
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE vouchers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        firestoreID TEXT,
+        name TEXT NOT NULL,
+        description TEXT,
+        startDate TEXT,
+        endDate TEXT,
+        ecoPointsRequired INTEGER,
+        quantity INTEGER
+      )
+    ''');
+
   }
 
   // Anonymous sign-in method
@@ -1042,6 +1056,69 @@ class DatabaseHelper {
     }
   }
 
+  Future<int> insertVoucher(Map<String, dynamic> voucher) async {
+    final db = await database;
+    try {
+      // Insert to Firestore
+      DocumentReference docRef = await FirebaseFirestore.instance
+          .collection('vouchers')
+          .add(voucher);
+
+      // Add Firestore ID to local map
+      voucher['firestoreID'] = docRef.id;
+
+      // Insert into SQLite
+      return await db.insert('vouchers', voucher);
+    } catch (e) {
+      print('Insert voucher failed: $e');
+      return -1;
+    }
+  }
+
+
+  Future<int> updateVoucher(int id, Map<String, dynamic> voucher) async {
+    final db = await database;
+    try {
+      // Update Firestore
+      await FirebaseFirestore.instance
+          .collection('vouchers')
+          .doc(voucher['firestoreID'])
+          .update(voucher);
+
+      // Update SQLite
+      return await db.update(
+        'vouchers',
+        voucher,
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      print('Update voucher failed: $e');
+      return -1;
+    }
+  }
+
+  Future<int> deleteVoucher(int id, String firestoreID) async {
+    final db = await database;
+    try {
+      // Delete from Firestore
+      await FirebaseFirestore.instance
+          .collection('vouchers')
+          .doc(firestoreID)
+          .delete();
+
+      // Delete from SQLite
+      return await db.delete('vouchers', where: 'id = ?', whereArgs: [id]);
+    } catch (e) {
+      print('Delete voucher failed: $e');
+      return -1;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAllVouchers() async {
+    final db = await database;
+    return await db.query('vouchers');
+  }
 
 
 }
