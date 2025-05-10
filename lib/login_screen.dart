@@ -4,6 +4,7 @@ import 'carpool_main_page.dart';
 import 'registration_screen.dart';
 import 'retrieve_password_screen.dart';
 import 'admin_login_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -14,6 +15,12 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    DatabaseHelper.instance.syncAllUsersFromFirestore();
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -40,6 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (user != null && user['password'] == password) {
       _showMessage('Login Successful!');
 
+      // Navigate to CarpoolMainPage after login
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -113,4 +121,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-

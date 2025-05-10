@@ -109,26 +109,42 @@ class DatabaseHelper {
     }
   }
 
+  Future<int> generateUserID() async {
+    // Get the current highest userID in Firestore
+    final snapshot = await FirebaseFirestore.instance.collection('users').orderBy('userID', descending: true).limit(1).get();
+
+    if (snapshot.docs.isEmpty) {
+      return 1; // If there are no users, start from 1
+    }
+
+    final highestUserID = snapshot.docs.first['userID'];
+    return highestUserID + 1; // Increment the last userID
+  }
+
   // Insert into Firestore and auto-increment userID
+  // Modify your insertUser method to auto-generate the userID in SQLite
   Future<int> insertUser(Map<String, dynamic> user) async {
     final db = await database;
 
-    // Set default values for rating, reviewCount, and ecoPoints if not provided
     user['rating'] = user['rating'] ?? 0.0;
     user['reviewCount'] = user['reviewCount'] ?? 0;
     user['ecoPoints'] = user['ecoPoints'] ?? 0;
 
     try {
-      // Insert into SQLite first
+      // Generate a unique userID
+      int userID = await generateUserID();
+      user['userID'] = userID;
+
+      // Insert into SQLite
       int sqliteUserID = await db.insert(
         'users',
         user,
-        conflictAlgorithm: ConflictAlgorithm.replace, // Handle conflicts by replacing
+        conflictAlgorithm: ConflictAlgorithm.replace,
       );
 
-      // Now insert into Firestore using the sqliteUserID as the userID
+      // Insert into Firestore with the unique userID
       await FirebaseFirestore.instance.collection('users').add({
-        'userID': sqliteUserID, // Use SQLite's auto-generated userID here
+        'userID': userID,
         'username': user['username'],
         'email': user['email'],
         'password': user['password'],
@@ -139,12 +155,14 @@ class DatabaseHelper {
         'ecoPoints': user['ecoPoints'],
       });
 
-      return sqliteUserID; // Return SQLite userID
+      return sqliteUserID;
     } catch (e) {
       print('Insert user failed: $e');
-      return -1; // Return error code if Firestore insert fails
+      return -1;
     }
   }
+
+
 
 
 
@@ -226,16 +244,29 @@ class DatabaseHelper {
 
   // Additional helper for syncing all users (e.g., at app launch)
   Future<void> syncAllUsersFromFirestore() async {
-    final snapshot = await FirebaseFirestore.instance.collection('users').get();
-    final db = await database;
+    try {
+      final snapshot = await FirebaseFirestore.instance.collection('users').get();
+      final db = await database;
 
-    for (var doc in snapshot.docs) {
-      final user = doc.data();
-      await db.insert(
-        'users',
-        user,
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      for (var doc in snapshot.docs) {
+        final userData = doc.data();
+
+        // Use Firestore 'userID' field, not the doc.id
+        userData['userID'] ??= 0;
+        userData['rating'] ??= 0.0;
+        userData['reviewCount'] ??= 0;
+        userData['ecoPoints'] ??= 0;
+
+        await db.insert(
+          'users',
+          userData,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+
+      print('All users synced from Firestore to SQLite.');
+    } catch (e) {
+      print('Error syncing users from Firestore to SQLite: $e');
     }
   }
 
