@@ -18,6 +18,8 @@ class _DriverConfirmRideState extends State<DriverConfirmRide> {
   int? availableSeats;
   String? ridePreference;
   bool isLoading = true; // For loading state
+  final double baseFee = 2.00;
+  final int baseEcoPoints = 2;
 
   String? username;
   String? email;
@@ -176,13 +178,31 @@ class _DriverConfirmRideState extends State<DriverConfirmRide> {
         seatsToReduce,
       );
       if (status == 'confirmed') {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Ride Confirmed!')));
+        final ride = await DatabaseHelper.instance.getRideByID(rideID);
+        final userID = ride?['userID'];
+        double baseFee = 2.00;
+
+        if (userID != null) {
+          // Fetch the current ecoPoints of the user
+          final user = await DatabaseHelper.instance.getUserByID(userID);
+          final currentEcoPoints = user?['ecoPoints'] ?? 0;
+
+          // Calculate new ecoPoints and fees
+          final rewardPerPersonRM = baseFee * seatsToReduce;
+          final updatedEcoPoints = currentEcoPoints + (2 * seatsToReduce); // 2 points for each person
+
+          // Update the ecoPoints in the database
+          await DatabaseHelper.instance.updateUserEcoPoints(userID, updatedEcoPoints);
+
+          // Show a SnackBar to inform the user about the updated ecoPoints
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ride Completed! You earned RM${rewardPerPersonRM.toStringAsFixed(2)} and +${2 * seatsToReduce} ecoPoints!')),
+          );
+        }
       } else {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Ride Rejected!')));
+        ).showSnackBar(SnackBar(content: Text('$status Ride!')));
       }
     } catch (e) {
       print('Error confirming or rejecting ride: $e');
@@ -308,6 +328,13 @@ class _DriverConfirmRideState extends State<DriverConfirmRide> {
                         Text('Email: $email'),
                         SizedBox(height: 6),
                         Text('Seat: $seat'),
+                        if (status == 'confirmed') ...[
+                          SizedBox(height: 6),
+                          Text(
+                            '🎉 You will earn RM${(baseFee * seat).toStringAsFixed(2)} and +${(baseEcoPoints * seat)} ecoPoints for this ride!',
+                            style: TextStyle(fontSize: 16, color: Colors.green, fontWeight: FontWeight.w600),
+                          ),
+                        ],
                         SizedBox(height: 6),
                         Text('Music Preference: $musicPreference'),
                         SizedBox(height: 6),
@@ -529,6 +556,17 @@ class _DriverConfirmRideState extends State<DriverConfirmRide> {
                                     'Status: $status',
                                     style: TextStyle(fontSize: 16),
                                   ),
+                                  if (status == 'confirmed') ...[
+                                    SizedBox(height: 8),
+                                    Text(
+                                      '🎉 Earned: RM${(baseFee * seat).toStringAsFixed(2)} and +${(baseEcoPoints * seat)} ecoPoints!',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green,
+                                      ),
+                                    ),
+                                  ],
                                   SizedBox(height: 8),
                                   Text(
                                     'Pickup Note: ${pickupNote?.isNotEmpty ?? false ? pickupNote : 'No pickup note available'}',

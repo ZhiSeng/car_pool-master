@@ -26,6 +26,9 @@ class _WaitingForConfirmationPageState
   bool isCancelled = false;
   late DateTime requestTime;
   late Timer _statusCheckTimer;
+  Map<String, dynamic>? carpoolDetails;
+  bool isLoadingDetails = false;
+  Map<String, dynamic>? driverDetails;
 
   @override
   void initState() {
@@ -73,25 +76,36 @@ class _WaitingForConfirmationPageState
   void _checkRideStatus() async {
     await DatabaseHelper.instance.syncRidesFromFirestoreToSQLite();
     // Get the current status from the database
-    String status = await DatabaseHelper.instance.checkRideStatus(widget.rideID, widget.carpoolID, widget.userID);
+    String status = await DatabaseHelper.instance.checkRideStatus(
+      widget.rideID,
+      widget.carpoolID,
+      widget.userID,
+    );
 
-    setState(() {
-      // Reset the flags before setting the new status
-      isConfirmed = false;
-      isRejected = false;
-      isExpired = false;
-
-      if (status == 'confirmed') {
+    if (status == 'confirmed') {
+      setState(() {
         isConfirmed = true;
-      } else if (status == 'rejected') {
+        isRejected = false;
+        isExpired = false;
+      });
+      await _fetchCarpoolDetails();
+    } else if (status == 'rejected') {
+      setState(() {
         isRejected = true;
-      } else if (status == 'expired') {
+        isConfirmed = false;
+        isExpired = false;
+      });
+    } else if (status == 'expired') {
+      setState(() {
         isExpired = true;
-      }
-    });
+        isConfirmed = false;
+        isRejected = false;
+      });
+    }
 
     if (isConfirmed || isRejected || isExpired) {
-      _statusCheckTimer.cancel();  // Stop checking once confirmed, rejected, or expired
+      _statusCheckTimer
+          .cancel(); // Stop checking once confirmed, rejected, or expired
     }
   }
 
@@ -102,9 +116,9 @@ class _WaitingForConfirmationPageState
 
     bool result = await _cancelRideInDatabase();
     if (!result) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to cancel the ride.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to cancel the ride.')));
     }
     // Show back button either way
   }
@@ -117,6 +131,32 @@ class _WaitingForConfirmationPageState
   Future<bool> _expireRideInDatabase() async {
     DatabaseHelper dbHelper = DatabaseHelper.instance;
     return await dbHelper.expireRide(widget.carpoolID, widget.userID);
+  }
+
+  Future<void> _fetchCarpoolDetails() async {
+    setState(() {
+      isLoadingDetails = true;
+    });
+
+    // Fetch from your local DB (or Firestore if needed)
+    Map<String, dynamic>? details = await DatabaseHelper.instance
+        .getCarpoolByID(widget.carpoolID);
+
+    setState(() {
+      carpoolDetails = details;
+      isLoadingDetails = false;
+    });
+
+    if (details != null && details['userID'] != null) {
+      await _fetchDriverDetails(details['userID']);
+    }
+  }
+
+  Future<void> _fetchDriverDetails(int userID) async {
+    final result = await DatabaseHelper.instance.getUserByID(userID);
+    setState(() {
+      driverDetails = result;
+    });
   }
 
   @override
@@ -135,7 +175,7 @@ class _WaitingForConfirmationPageState
               Icon(Icons.error, color: Colors.redAccent, size: 80)
             else if (isConfirmed)
               Icon(Icons.check_circle, color: Colors.green, size: 80)
-              else if (isRejected)
+            else if (isRejected)
               Icon(Icons.cancel, color: Colors.red, size: 80)
             else
               CircularProgressIndicator(),
@@ -143,32 +183,91 @@ class _WaitingForConfirmationPageState
             if (isExpired)
               Text(
                 'Your ride request has expired.',
-                style: TextStyle(fontSize: 18, color: Colors.red, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
                 textAlign: TextAlign.center,
               )
             else if (isCancelled)
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
-                'You have cancelled the ride request. Please try again.',
-                style: TextStyle(fontSize: 18, color: Colors.red, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-                ),
-              )else if (isConfirmed)
-              // Show confirmed message
-                Text(
-                  'Your ride request has been confirmed!',
-                  style: TextStyle(fontSize: 18, color: Colors.green, fontWeight: FontWeight.bold),
+                  'You have cancelled the ride request. Please try again.',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
                   textAlign: TextAlign.center,
-                )
-              else if (isRejected)
-                // Show rejected status
+                ),
+              )
+            else if (isConfirmed)
+              // Show confirmed message
+              Column(
+                children: [
                   Text(
-                    'Your ride request has been rejected.',
-                    style: TextStyle(fontSize: 18, color: Colors.red, fontWeight: FontWeight.bold),
+                    'Your ride request has been confirmed!',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
+                    ),
                     textAlign: TextAlign.center,
-                  )
-              else
+                  ),
+                  SizedBox(height: 20),
+                  if (isLoadingDetails)
+                    CircularProgressIndicator()
+                  else if (carpoolDetails != null)
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Driver Name: ${driverDetails!['username']}',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        Text(
+                          'Driver Rate: ${driverDetails!['rating']}',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        Text(
+                          'Car Plate: ${carpoolDetails!['carPlateNumber']}',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        Text(
+                          'Car Color: ${carpoolDetails!['carColor']}',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        Text(
+                          'Car Type: ${carpoolDetails!['carModel']}',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        SizedBox(height: 12),
+                        Text(
+                          'Driver will arrive to pickup point as soon as possible, please get ready at the pickup point.',
+                          style:  TextStyle(fontSize: 16, color: Colors.redAccent),
+                          textAlign: TextAlign.center,
+                        )
+                      ],
+                    ),
+                    ),
+                ],
+              )
+            else if (isRejected)
+              // Show rejected status
+              Text(
+                'Your ride request has been rejected.',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              )
+            else
               Column(
                 children: [
                   Text(
@@ -191,9 +290,7 @@ class _WaitingForConfirmationPageState
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blueAccent,
                 ),
-                child: Text('Back',
-                  style: TextStyle(color: Colors.white),
-                ),
+                child: Text('Back', style: TextStyle(color: Colors.white)),
               )
             else
               ElevatedButton(
@@ -201,7 +298,8 @@ class _WaitingForConfirmationPageState
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.redAccent,
                 ),
-                child: Text('Cancel Ride',
+                child: Text(
+                  'Cancel Ride',
                   style: TextStyle(color: Colors.white),
                 ),
               ),

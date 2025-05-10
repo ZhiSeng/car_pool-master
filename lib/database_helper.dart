@@ -954,5 +954,63 @@ class DatabaseHelper {
     }
   }
 
+  Future<bool> hasOngoingRide(int userID) async {
+    final db = await database;
+
+    final result = await db.query(
+      'rides',
+      where: 'userID = ? AND status != ?',
+      whereArgs: [userID, 'completed'],
+      limit: 1,
+    );
+
+    return result.isNotEmpty;
+  }
+
+  Future<void> updateUserEcoPoints(int userID, int ecoPoints) async {
+    final db = await database;
+
+    try {
+      // Step 1: Update ecoPoints in SQLite
+      await db.update(
+        'users', // Assuming 'users' is the table where user data is stored
+        {'ecoPoints': ecoPoints}, // Update the ecoPoints column
+        where: 'userID = ?', // Where condition to find the user by their ID
+        whereArgs: [userID],
+      );
+
+      // Step 2: Update ecoPoints in Firestore
+      final user = await db.query(
+        'users',
+        where: 'userID = ?',
+        whereArgs: [userID],
+      );
+
+      if (user.isNotEmpty) {
+        final firestoreID = user.first['firestoreID'] as String?;
+
+        if (firestoreID == null) {
+          print('Firestore ID is missing for user $userID');
+          return;
+        }
+
+        // Get the corresponding Firestore user document reference
+        final userDocRef = FirebaseFirestore.instance.collection('users').doc(firestoreID);
+
+        // Update the ecoPoints field in Firestore
+        await userDocRef.update({
+          'ecoPoints': ecoPoints,
+        });
+
+        print('User ecoPoints updated successfully in both SQLite and Firestore');
+      } else {
+        print('User not found in SQLite');
+      }
+    } catch (e) {
+      print('Error updating ecoPoints: $e');
+    }
+  }
+
+
 
 }

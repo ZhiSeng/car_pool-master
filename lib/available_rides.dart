@@ -11,6 +11,7 @@ class AvailableRidesPage extends StatefulWidget {
   final bool musicPreference;
   final bool petFriendly;
   final bool nonSmoking;
+  final int userID;
 
   const AvailableRidesPage({
     required this.fromLocation,
@@ -19,6 +20,7 @@ class AvailableRidesPage extends StatefulWidget {
     required this.musicPreference,
     required this.petFriendly,
     required this.nonSmoking,
+    required this.userID,
   });
 
   @override
@@ -41,14 +43,15 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
     await DatabaseHelper.instance.updateSQLiteFromFirestore();
 
     // Then fetch active rides from SQLite based on user preferences
-    List<Map<String, dynamic>> rides = await DatabaseHelper.instance.getActiveCarpools(
-      fromLocation: widget.fromLocation,
-      toLocation: widget.toLocation,
-      seatCount: widget.seatCount,
-      musicPreference: widget.musicPreference,
-      petFriendly: widget.petFriendly,
-      nonSmoking: widget.nonSmoking,
-    );
+    List<Map<String, dynamic>> rides = await DatabaseHelper.instance
+        .getActiveCarpools(
+          fromLocation: widget.fromLocation,
+          toLocation: widget.toLocation,
+          seatCount: widget.seatCount,
+          musicPreference: widget.musicPreference,
+          petFriendly: widget.petFriendly,
+          nonSmoking: widget.nonSmoking,
+        );
 
     setState(() {
       activeCarpools = Future.value(rides);
@@ -59,9 +62,18 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
 
   String _formatDateTime(String date, String time) {
     try {
-      final formatted =
-          '$date ${time.split(':')[0].padLeft(2, '0')}:${time.split(':')[1].padLeft(2, '0')}';
-      return DateFormat('yyyy-MM-dd HH:mm').format(DateTime.parse(formatted));
+      final parsedDate = DateFormat('yyyy-MM-dd').parse(date);
+      final parsedTime = DateFormat('h:mm a').parse(time);
+
+      final combinedDateTime = DateTime(
+        parsedDate.year,
+        parsedDate.month,
+        parsedDate.day,
+        parsedTime.hour,
+        parsedTime.minute,
+      );
+
+      return DateFormat('yyyy-MM-dd HH:mm').format(combinedDateTime);
     } catch (e) {
       return 'Invalid Date/Time';
     }
@@ -83,6 +95,15 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
       return;
     }
 
+    bool hasPreference =
+        carpool['ridePreference'] != null &&
+        carpool['ridePreference'].toString().isNotEmpty;
+
+    // Dynamically adjust minChildSize based on whether preference exists
+    double minChildSize = hasPreference ? 0.6 : 0.55;
+
+    double seatFee = 2.00;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -92,9 +113,9 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
       ),
       builder: (BuildContext context) {
         return DraggableScrollableSheet(
-          initialChildSize: 0.567,
-          minChildSize: 0.567,
-          maxChildSize: 0.567,
+          initialChildSize: 0.6,
+          minChildSize: minChildSize,
+          maxChildSize: 0.6,
           expand: false,
           builder: (context, scrollController) {
             return Column(
@@ -199,18 +220,22 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                             ),
                           ],
                         ),
-                        SizedBox(height: 10),
+                        SizedBox(height: 8),
+                        Text(
+                          'Car Model: ${carpool['carModel']}',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        SizedBox(height: 4),
                         Text(
                           'Date & Time: ${_formatDateTime(carpool['date'], carpool['time'])}',
-                          style: TextStyle(fontSize: 14),
+                          style: TextStyle(fontSize: 16),
                         ),
                         SizedBox(height: 4),
                         Text(
                           'Available Seats: ${carpool['availableSeats']}',
-                          style: TextStyle(fontSize: 14),
+                          style: TextStyle(fontSize: 16),
                         ),
-                        if (carpool['ridePreference'] != null &&
-                            carpool['ridePreference'].toString().isNotEmpty)
+                        if (hasPreference)
                           Padding(
                             padding: const EdgeInsets.only(top: 6.0),
                             child: Text(
@@ -218,6 +243,58 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                               style: TextStyle(fontSize: 16),
                             ),
                           ),
+
+                        // todo:: add the actual eco points at here to show the current eco points and add the points with calculated future eco points will added
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            'Eco Points: +${widget.seatCount * 2}',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Payment Method',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                              Row(
+                                children: [
+                                  Icon(Icons.attach_money, color: Colors.green, size: 20),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Cash',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Total Fare',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                              Text(
+                                'RM ${(widget.seatCount * seatFee).toStringAsFixed(2)}',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -232,7 +309,10 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                     children: [
                       Text(
                         'Pickup Note',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                       SizedBox(height: 4),
                       TextField(
@@ -270,8 +350,20 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                         child: ElevatedButton(
                           onPressed: () async {
                             DatabaseHelper dbHelper = DatabaseHelper.instance;
-                            int userID =
-                                2; // replace with the current logged-in passenger's userID
+                            int userID = widget.userID; // replace with the current logged-in passenger's userID
+                            bool hasRide = await dbHelper.hasOngoingRide(userID);
+
+                            if (hasRide) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('You already have an ongoing or pending ride. Complete it before requesting a new one.'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
                             String pickupNote =
                                 pickupNoteController.text.trim();
                             int seatCounter = widget.seatCount;
@@ -298,9 +390,9 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                             int rideID = await dbHelper.insertRide(rideData);
 
                             if (rideID != -1) {
-                              ScaffoldMessenger.of(
-                                context,
-                              ).showSnackBar(SnackBar(content: Text('Ride confirmed!')));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Ride confirmed!')),
+                              );
 
                               // Close bottom sheet before navigating
                               Navigator.pop(context);
@@ -309,16 +401,19 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => WaitingForConfirmationPage(
-                                    rideID: rideID,
-                                    carpoolID: carpoolID,
-                                    userID: userID,
-                                  ),
+                                  builder:
+                                      (context) => WaitingForConfirmationPage(
+                                        rideID: rideID,
+                                        carpoolID: carpoolID,
+                                        userID: userID,
+                                      ),
                                 ),
                               );
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Failed to confirm the ride.')),
+                                SnackBar(
+                                  content: Text('Failed to confirm the ride.'),
+                                ),
                               );
                             }
                           },
@@ -372,10 +467,9 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                   } else {
                     List<Map<String, dynamic>> carpools = snapshot.data!;
 
-                     return RefreshIndicator(
-                       onRefresh: _refreshCarpools,
-                       child:
-                      ListView.builder(
+                    return RefreshIndicator(
+                      onRefresh: _refreshCarpools,
+                      child: ListView.builder(
                         itemCount: carpools.length,
                         itemBuilder: (context, index) {
                           var carpool = carpools[index];
@@ -408,8 +502,7 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                                   ),
                                   SizedBox(height: 8),
                                   Text(
-                                    'Date & Time: ${_formatDateTime(
-                                        carpool['date'], carpool['time'])}',
+                                    'Date & Time: ${_formatDateTime(carpool['date'], carpool['time'])}',
                                     style: TextStyle(fontSize: 16),
                                   ),
                                   if (carpool['ridePreference'] != null &&
@@ -460,10 +553,11 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                               ),
                             ),
                           );
-                        }
-                      )
-                      );
-                    };
+                        },
+                      ),
+                    );
+                  }
+                  ;
                 },
               ),
             ),

@@ -9,6 +9,17 @@ class CarpoolRegistrationPage extends StatefulWidget {
   // Accept userID passed from CarpoolMainPage
   CarpoolRegistrationPage({required this.userID});
 
+  // Dropdown list for pick-up and drop-off points
+  static const List<String> locations = [
+    'East Campus Gate',
+    'TARUMT Main Gate',
+    'PV9',
+    'PV15',
+    'Setapak Central Mall',
+    'PV10',
+    'PV12',
+  ];
+
   @override
   _CarpoolRegistrationPageState createState() =>
       _CarpoolRegistrationPageState();
@@ -24,17 +35,6 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
   final _carPlateController = TextEditingController(); // Car Plate TextField
   final _carColorController = TextEditingController(); // Car Color TextField
   final _carModelController = TextEditingController(); // Car Model TextField
-
-  // Dropdown list for pick-up and drop-off points
-  final List<String> locations = [
-    'East Campus Gate',
-    'TARUMT Main Gate',
-    'PV9',
-    'PV15',
-    'Setapak Central Mall',
-    'PV10',
-    'PV12',
-  ];
 
   String _selectedPickUp = 'East Campus Gate';
   String _selectedDropOff = 'TARUMT Main Gate';
@@ -231,7 +231,7 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
                           _selectedPickUp = newValue!;
                         });
                       },
-                      items: locations.map<DropdownMenuItem<String>>((
+                      items: CarpoolRegistrationPage.locations.map<DropdownMenuItem<String>>((
                           String value) {
                         return DropdownMenuItem<String>(
                           value: value,
@@ -256,7 +256,7 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
                           _selectedDropOff = newValue!;
                         });
                       },
-                      items: locations.map<DropdownMenuItem<String>>((
+                      items: CarpoolRegistrationPage.locations.map<DropdownMenuItem<String>>((
                           String value) {
                         return DropdownMenuItem<String>(
                           value: value,

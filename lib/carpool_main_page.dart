@@ -21,7 +21,7 @@ class _CarpoolMainPageState extends State<CarpoolMainPage> {
   void initState() {
     super.initState();
     _loadUsername();
-
+    _syncRides();
   }
 
   Future<void> _loadUsername() async {
@@ -31,6 +31,11 @@ class _CarpoolMainPageState extends State<CarpoolMainPage> {
         username = user['username'];
       });
     }
+  }
+
+  // Function to sync rides from Firestore to SQLite
+  Future<void> _syncRides() async {
+    await DatabaseHelper.instance.syncRidesFromFirestoreToSQLite();
   }
 
   @override
@@ -92,7 +97,7 @@ class _CarpoolMainPageState extends State<CarpoolMainPage> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => FindARidePage()),
+                  MaterialPageRoute(builder: (context) => FindARidePage(userID: widget.userID)),
                 );
               },
               child: Text('Find a Ride'),

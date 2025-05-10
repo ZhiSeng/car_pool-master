@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 import 'available_rides.dart';
+import 'package:car_pool/carpool_registration.dart';
 
 class FindARidePage extends StatefulWidget {
+  final int userID;
+
+  const FindARidePage({
+    required this.userID,
+  });
+
   @override
   _FindARidePageState createState() => _FindARidePageState();
 }
@@ -20,7 +27,8 @@ class _FindARidePageState extends State<FindARidePage> {
   bool nonSmoking = false;
 
   // List of locations for the dropdown
-  final List<String> locations = ['Location A', 'Location B', 'Location C', 'Location D', 'TARUMT Main Gate', 'TARUMT East Campus'];
+  // final List<String> locations = ['Location A', 'Location B', 'Location C', 'Location D', 'TARUMT Main Gate', 'TARUMT East Campus'];
+  final List<String> locations = CarpoolRegistrationPage.locations;
 
   @override
   Widget build(BuildContext context) {
@@ -221,6 +229,7 @@ class _FindARidePageState extends State<FindARidePage> {
             musicPreference: musicPreference,
             petFriendly: petFriendly,
             nonSmoking: nonSmoking,
+            userID: widget.userID,
           ),
         ),
       );
