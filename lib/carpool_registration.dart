@@ -222,191 +222,209 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Carpool Registration'),
+        backgroundColor: Colors.blueAccent,
+        centerTitle: true,
       ),
       body: _selectedIndex == 0
           ? SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.start,
+          child: Card(
+            elevation: 5,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Pick-Up Point', style: TextStyle(fontSize: 16)),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: DropdownButton<String>(
-                      value: _selectedPickUp,
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          _selectedPickUp = newValue!;
-                        });
-                      },
-                      items: locations.map<DropdownMenuItem<String>>((
-                          String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
+                  _buildDropdownSection(
+                      'Pick-Up Point', _selectedPickUp, (String? newValue) {
+                    setState(() {
+                      _selectedPickUp = newValue!;
+                    });
+                  }),
+                  SizedBox(height: 16),
+                  _buildDropdownSection(
+                      'Drop-Off Point', _selectedDropOff, (String? newValue) {
+                    setState(() {
+                      _selectedDropOff = newValue!;
+                    });
+                  }),
+                  SizedBox(height: 24),
+
+                  // Date and Time Fields
+                  _buildTextFieldWithIcon(
+                    controller: _dateController,
+                    label: 'Select Date',
+                    icon: Icons.calendar_today,
+                    onTapIcon: () => _selectDate(context),
+                  ),
+                  SizedBox(height: 12),
+                  _buildTextFieldWithIcon(
+                    controller: _timeController,
+                    label: 'Select Time',
+                    icon: Icons.access_time,
+                    onTapIcon: () => _selectTime(context),
+                  ),
+                  SizedBox(height: 24),
+
+                  // Seat Picker
+                  Text('Available Seats:', style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.remove_circle_outline),
+                        onPressed: _availableSeats > 1
+                            ? () => setState(() => _availableSeats--)
+                            : null,
+                        color: Colors.blueAccent,
+                      ),
+                      Text('$_availableSeats',
+                          style: TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold)),
+                      IconButton(
+                        icon: Icon(Icons.add_circle_outline),
+                        onPressed: () => setState(() => _availableSeats++),
+                        color: Colors.blueAccent,
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 24),
+
+                  // Car Info Fields
+                  _buildLabel('Car Information'),
+                  _buildTextField(
+                      _carPlateController, 'Enter Car Plate Number'),
+                  _buildTextField(_carColorController, 'Enter Car Color'),
+                  _buildTextField(_carModelController, 'Enter Car Model'),
+                  SizedBox(height: 24),
+
+                  // Preferences
+                  _buildLabel('Ride Preferences'),
+                  _buildCheckboxTile(
+                      'Music Preference', _musicPreference, (val) {
+                    setState(() => _musicPreference = val!);
+                  }),
+                  _buildCheckboxTile('Pet Friendly', _petFriendly, (val) {
+                    setState(() => _petFriendly = val!);
+                  }),
+                  _buildCheckboxTile('Non-Smoking', _nonSmoking, (val) {
+                    setState(() => _nonSmoking = val!);
+                  }),
+                  SizedBox(height: 30),
+
+                  // Submit Button
+                  Center(
+                    child: ElevatedButton.icon(
+                      icon: Icon(Icons.check_circle),
+                      label: Text('Register Carpool'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 30, vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                      onPressed: _submitCarpool,
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  Text('Drop-Off Point', style: TextStyle(fontSize: 16)),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: DropdownButton<String>(
-                      value: _selectedDropOff,
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          _selectedDropOff = newValue!;
-                        });
-                      },
-                      items: locations.map<DropdownMenuItem<String>>((
-                          String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ],
-              ),
-
-              // Date Picker with Label
-              SizedBox(height: 12),
-              TextField(
-                controller: _dateController,
-                decoration: InputDecoration(
-                    labelText: 'Select Date',
-                    suffixIcon: IconButton(
-                      icon: Icon(Icons.calendar_today),
-                      onPressed: () => _selectDate(context),
-                    )),
-              ),
-
-              // Time Picker with Label
-              SizedBox(height: 12),
-              TextField(
-                controller: _timeController,
-                decoration: InputDecoration(
-                    labelText: 'Select Time',
-                    suffixIcon: IconButton(
-                      icon: Icon(Icons.access_time),
-                      onPressed: () => _selectTime(context),
-                    )),
-              ),
-
-              // Available Seats (Stepper to adjust the number) with Label
-              SizedBox(height: 12),
-              Text('Available Seats:', style: TextStyle(fontSize: 16)),
-              Row(
-                children: [
-                  IconButton(
-                    icon: Icon(Icons.remove),
-                    onPressed: () {
-                      setState(() {
-                        if (_availableSeats > 1) _availableSeats--;
-                      });
-                    },
-                  ),
-                  Text('$_availableSeats'),
-                  IconButton(
-                    icon: Icon(Icons.add),
-                    onPressed: () {
-                      setState(() {
-                        _availableSeats++;
-                      });
-                    },
-                  ),
-                ],
-              ),
-
-              // Car Information Fields with Labels
-              SizedBox(height: 12),
-              TextField(
-                controller: _carPlateController,
-                decoration: InputDecoration(
-                    labelText: 'Enter Car Plate Number'),
-              ),
-              TextField(
-                controller: _carColorController,
-                decoration: InputDecoration(labelText: 'Enter Car Color'),
-              ),
-              TextField(
-                controller: _carModelController,
-                decoration: InputDecoration(labelText: 'Enter Car Model'),
-              ),
-
-              // Ride Preferences (Checkboxes) with Label
-              SizedBox(height: 20),
-              Text('Ride Preferences',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              CheckboxListTile(
-                title: Text("Music Preference"),
-                value: _musicPreference,
-                onChanged: (bool? value) {
-                  setState(() {
-                    _musicPreference = value!;
-                  });
-                },
-              ),
-              CheckboxListTile(
-                title: Text("Pet Friendly"),
-                value: _petFriendly,
-                onChanged: (bool? value) {
-                  setState(() {
-                    _petFriendly = value!;
-                  });
-                },
-              ),
-              CheckboxListTile(
-                title: Text("Non-Smoking"),
-                value: _nonSmoking,
-                onChanged: (bool? value) {
-                  setState(() {
-                    _nonSmoking = value!;
-                  });
-                },
-              ),
-
-              SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _submitCarpool,
-                child: Text('Register Carpool'),
-              ),
-            ],
+            ),
           ),
         ),
       )
           : _selectedIndex == 1
-          ? RegisteredCarpoolPage(userID: widget.userID) // Pass userID here
+          ? RegisteredCarpoolPage(userID: widget.userID)
           : CarpoolHistoryPage(userID: widget.userID),
-      // Assuming CarpoolHistoryPage doesn't need userID
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add),
-            label: 'Register Carpool',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.list),
-            label: 'Registered Carpool',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'Carpool History',
-          ),
+        selectedItemColor: Colors.blueAccent,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.add), label: 'Register'),
+          BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Registered'),
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
         ],
       ),
     );
   }
+  Widget _buildDropdownSection(String label, String? value, ValueChanged<String?> onChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          value: value,
+          isExpanded: true,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          items: locations.map((location) {
+            return DropdownMenuItem(value: location, child: Text(location));
+          }).toList(),
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextFieldWithIcon({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required VoidCallback onTapIcon,
+  }) {
+    return TextField(
+      controller: controller,
+      readOnly: true,
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        suffixIcon: IconButton(icon: Icon(icon), onPressed: onTapIcon),
+      ),
+    );
+  }
+
+  Widget _buildTextField(TextEditingController controller, String label) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: TextField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, top: 16),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+      ),
+    );
+  }
+
+  Widget _buildCheckboxTile(String label, bool value, ValueChanged<bool?> onChanged) {
+    return CheckboxListTile(
+      title: Text(label),
+      value: value,
+      onChanged: onChanged,
+      activeColor: Colors.blueAccent,
+      controlAffinity: ListTileControlAffinity.leading,
+    );
+  }
+
 }

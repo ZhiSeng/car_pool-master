@@ -67,8 +67,9 @@ class DatabaseHelper {
 
     // Create the carpool history table
     await db.execute('''
-     CREATE TABLE carpool_history (
-         id INTEGER PRIMARY KEY AUTOINCREMENT,
+    CREATE TABLE carpool_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    firestoreID TEXT,
     carpoolID INTEGER NOT NULL,
     userID INTEGER NOT NULL,
     status TEXT,
@@ -79,8 +80,8 @@ class DatabaseHelper {
     time TEXT,
     FOREIGN KEY(carpoolID) REFERENCES carpools(id),
     FOREIGN KEY(userID) REFERENCES users(userID)
-      )
-    ''');
+  )
+''');
 
 
     await db.execute('''
@@ -1211,42 +1212,56 @@ class DatabaseHelper {
     }
   }
 
-  Future<void> syncCarpoolHistoryFromFirebaseToSQLite() async {
+  Future<void> syncCarpoolHistoryFromFirestoreToSQLite(int userID) async {
     try {
-      final snapshot = await FirebaseFirestore.instance
+      // Fetch data from Firestore collection 'carpool_history' for a specific user
+      QuerySnapshot snapshot = await FirebaseFirestore.instance
           .collection('carpool_history')
+          .where('userID', isEqualTo: userID) // Filter by userID
           .get();
-
       final db = await database;
 
+      // Loop through each Firestore document
       for (var doc in snapshot.docs) {
-        final historyData = doc.data() as Map<String, dynamic>;
-        historyData['firestoreID'] = doc.id;
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
 
-        // Check if the history entry exists in SQLite
-        final existingEntry = await db.query(
+        // Add the Firestore document ID to the data
+        data['firestoreID'] = doc.id;
+
+        // Check if the history entry already exists in SQLite using Firestore ID
+        final existingHistory = await db.query(
           'carpool_history',
           where: 'firestoreID = ?',
-          whereArgs: [doc.id],
+          whereArgs: [data['firestoreID']],
         );
 
-        if (existingEntry.isEmpty) {
+        if (existingHistory.isEmpty) {
+          // If the entry doesn't exist, insert it into SQLite
           await db.insert(
             'carpool_history',
-            historyData,
-            conflictAlgorithm: ConflictAlgorithm.replace,
+            data,
+            conflictAlgorithm: ConflictAlgorithm.replace,  // Replace existing data if conflict
           );
-          print('Inserted carpool history ${doc.id}');
+          print('Inserted carpool history: ${doc.id}');
         } else {
-          print('Skipped duplicate history ${doc.id}');
+          // If the entry already exists, update it in SQLite
+          await db.update(
+            'carpool_history',
+            data,
+            where: 'firestoreID = ?',
+            whereArgs: [data['firestoreID']],
+          );
+          print('Updated carpool history: ${doc.id}');
         }
       }
 
-      print('✅ Synced carpool history from Firestore');
+      print('✅ Carpool history synced from Firestore to SQLite.');
     } catch (e) {
-      print('❌ Error syncing history from Firestore: $e');
+      print('❌ Error syncing carpool history from Firestore: $e');
     }
   }
+
+
 
   Future<Map<String, dynamic>?> getCarpoolByFirestoreID(String firestoreID) async {
     final db = await database;
