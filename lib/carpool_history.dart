@@ -13,6 +13,7 @@ class CarpoolHistoryPage extends StatefulWidget {
 
 class _CarpoolHistoryPageState extends State<CarpoolHistoryPage> {
   List<Map<String, dynamic>> carpoolHistory = [];
+  double totalEarnings = 0.0;
   bool isLoading = true;
 
   @override
@@ -32,25 +33,42 @@ class _CarpoolHistoryPageState extends State<CarpoolHistoryPage> {
   // Fetch carpool history for the user (completed or canceled)
   Future<void> _loadCarpoolHistory() async {
     final historyData = await DatabaseHelper.instance.getCarpoolHistory(widget.userID);
+    double total = 0.0; // Variable to store the total earnings
+
+    // Calculate the total earnings by summing up the earnings from completed carpools
+    for (var carpool in historyData) {
+      total += await DatabaseHelper.instance.calculateCarpoolEarnings(carpool['id']);
+    }
+
     setState(() {
       carpoolHistory = historyData;
+      totalEarnings = total;  // Store the total earnings
       isLoading = false; // Once data is loaded, stop the loading indicator
     });
   }
+
+  // Add carpool history and calculate earnings
   Future<void> addCarpoolHistory(int carpoolID, int userID, String status) async {
-    final earnings = await DatabaseHelper.instance.calculateCarpoolEarnings(carpoolID);
+    double earnings = 0.0;
+
+    if (status == 'completed') {
+      // Calculate earnings for completed rides (RM 2 per confirmed passenger)
+      earnings = await DatabaseHelper.instance.calculateCarpoolEarnings(carpoolID);
+    } else if (status == 'canceled') {
+      // Set earnings to 0 for canceled carpools
+      earnings = 0.0;
+    }
 
     // Store carpool history and update earnings in the 'carpools' table
     await DatabaseHelper.instance.addCarpoolHistory(
       carpoolID,
       userID,
       status,
-      earnings,
+      earnings,  // Passing the earnings here
     );
 
-    // Update the earnings in the carpool table
+    // Update the earnings in the carpool table, whether it's completed or canceled
     await DatabaseHelper.instance.updateCarpoolEarnings(carpoolID);
-
   }
 
 
@@ -181,7 +199,30 @@ class _CarpoolHistoryPageState extends State<CarpoolHistoryPage> {
           );
         },
       ),
+      bottomSheet: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Total Earnings:',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+            Text(
+              'RM ${totalEarnings.toStringAsFixed(2)}',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
-
 }

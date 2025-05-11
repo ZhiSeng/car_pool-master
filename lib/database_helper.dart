@@ -565,6 +565,7 @@ class DatabaseHelper {
   }
 
 
+
   // Fetch active carpools for the Registered Carpool page
   Future<List<Map<String, dynamic>>> getCarpools(int userID) async {
     final db = await database;
@@ -577,39 +578,30 @@ class DatabaseHelper {
   }
 
 
+
   // Insert carpool history (either completed or canceled)
   Future<void> addCarpoolHistory(
       int carpoolID,
       int userID,
       String status,
-      double earnings,
+      double earnings,  // Add earnings as an argument
       ) async {
     final db = await database;
 
-    // Retrieve carpool details based on carpoolID from the 'carpools' table
-    final carpool = await db.query(
-      'carpools',
-      where: 'id = ?',
-      whereArgs: [carpoolID],
-    );
-
-    if (carpool.isNotEmpty) {
-      final carpoolData = carpool.first;
-
-      // Insert the completed or canceled carpool into the carpool_history table
-      await db.insert('carpool_history', {
-        'carpoolID': carpoolID,
-        'userID': userID,
-        'status': status, // 'completed' or 'canceled'
-        'earnings': earnings,
-        // Copy details from the carpool table to the history table
-        'pickUpPoint': carpoolData['pickUpPoint'],
-        'dropOffPoint': carpoolData['dropOffPoint'],
-        'date': carpoolData['date'],
-        'time': carpoolData['time'],
-      });
-    }
+    // Insert the completed or canceled carpool into the carpool_history table
+    await db.insert('carpool_history', {
+      'carpoolID': carpoolID,
+      'userID': userID,
+      'status': status, // 'completed' or 'canceled'
+      'earnings': earnings, // Add earnings for this carpool
+      // Copy details from the carpool table to the history table
+      'pickUpPoint': 'PickUpPoint',  // Replace with actual values if needed
+      'dropOffPoint': 'DropOffPoint', // Replace with actual values if needed
+      'date': 'Date', // Replace with actual values if needed
+      'time': 'Time', // Replace with actual values if needed
+    });
   }
+
 
   // Get list of drivers from completed rides for rating
   // Fetch completed rides for a passenger to rate the driver
@@ -1308,6 +1300,7 @@ class DatabaseHelper {
     }
   }
 
+
   Future<void> syncCarpoolHistoryFromFirestoreToSQLite(int userID) async {
     try {
       final snapshot = await FirebaseFirestore.instance
@@ -1399,11 +1392,11 @@ class DatabaseHelper {
   Future<double> calculateCarpoolEarnings(int carpoolID) async {
     final db = await database;
 
-    // Fetch the completed confirmed rides for this carpool
+    // Fetch the number of completed rides for this carpool
     final completedRides = await db.query(
       'rides',
       where: 'carpoolID = ? AND status = ?',
-      whereArgs: [carpoolID, 'completed'], // Only count completed rides
+      whereArgs: [carpoolID, 'completed'],
     );
 
     // Calculate earnings: RM 2 per completed passenger
@@ -1412,13 +1405,14 @@ class DatabaseHelper {
     return earnings;
   }
 
+
   Future<void> updateCarpoolEarnings(int carpoolID) async {
     final db = await database;
 
     // Calculate the carpool earnings
     double earnings = await calculateCarpoolEarnings(carpoolID);
 
-    // Update the earnings in the 'carpools' table
+    // Update the earnings in the 'carpools' table (SQLite)
     await db.update(
       'carpools',
       {'earnings': earnings},
@@ -1438,6 +1432,7 @@ class DatabaseHelper {
         final firestoreID = carpool.first['firestoreID'] as String?;
 
         if (firestoreID != null) {
+          // Update the earnings field in Firestore
           await FirebaseFirestore.instance
               .collection('carpools')
               .doc(firestoreID)
@@ -1449,6 +1444,7 @@ class DatabaseHelper {
       print('Error updating earnings in Firestore: $e');
     }
   }
+
 
   Future<int?> getEcoPointsByUserID(int userID) async {
     final db = await instance.database;
