@@ -30,19 +30,21 @@ class _EcoPointsAndVoucherPageState extends State<EcoPointsAndVoucherPage> {
       setState(() {
         currentUser = user;
         ecoPoints = user['ecoPoints'] ?? 0;
-        final now = DateTime.now();
-
         availableVouchers = vouchers.where((v) {
+          final redeemedBy = v['redeemedBy'] ?? '';
+          final redeemedList = redeemedBy.split(',').map((e) => e.trim()).toList();
           final start = DateTime.tryParse(v['startDate'] ?? '');
           final end = DateTime.tryParse(v['endDate'] ?? '');
-
-          final isWithinDateRange = start != null && end != null && now.isAfter(start.subtract(Duration(days: 1))) && now.isBefore(end.add(Duration(days: 1)));
-          final notRedeemed = v['redeemedBy'] == null || v['redeemedBy'] != widget.userID;
-
-          return v['quantity'] > 0 && isWithinDateRange && notRedeemed;
+          final now = DateTime.now();
+          return !redeemedList.contains(widget.userID.toString()) &&
+              start != null && end != null &&
+              now.isAfter(start) && now.isBefore(end);
         }).toList();
 
-        redeemedVouchers = vouchers.where((v) => v['redeemedBy'] == widget.userID).toList();
+        redeemedVouchers = vouchers.where((v) {
+          final redeemedBy = v['redeemedBy'] ?? '';
+          return redeemedBy.split(',').map((e) => e.trim()).contains(widget.userID.toString());
+        }).toList();
       });
     }
   }
@@ -79,17 +81,31 @@ class _EcoPointsAndVoucherPageState extends State<EcoPointsAndVoucherPage> {
       return;
     }
 
-    final updatedEcoPoints = ecoPoints - (voucher['ecoPointsRequired'] as int);
-    final updatedQuantity = (voucher['quantity'] as int) - 1;
+    final db = await DatabaseHelper.instance.database;
 
-    await DatabaseHelper.instance.updateUserEcoPoints(widget.userID, updatedEcoPoints);
+    // Get current redeemedBy list
+    String redeemedBy = voucher['redeemedBy'] ?? '';
+    List<String> redeemedList = redeemedBy.split(',').where((e) => e.trim().isNotEmpty).toList();
 
+    // Prevent double redemption
+    if (redeemedList.contains(widget.userID.toString())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('You have already redeemed this voucher.')),
+      );
+      return;
+    }
+
+    // Proceed with redeem
+    redeemedList.add(widget.userID.toString());
     final updatedVoucher = {
       ...voucher,
-      'quantity': updatedQuantity,
-      'redeemedBy': widget.userID,
+      'redeemedBy': redeemedList.join(','),
     };
 
+    final updatedEcoPoints = ecoPoints - (voucher['ecoPointsRequired'] as int);
+
+    // Update ecoPoints and voucher in DB
+    await DatabaseHelper.instance.updateUserEcoPoints(widget.userID, updatedEcoPoints);
     await DatabaseHelper.instance.updateVoucher(voucher['id'], updatedVoucher);
 
     setState(() {

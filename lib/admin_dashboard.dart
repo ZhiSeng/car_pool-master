@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'database_helper.dart';
 import 'voucher_management_screen.dart';
+import 'login_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   @override
@@ -31,9 +32,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ElevatedButton(
             onPressed: () {
               Navigator.of(ctx).pop(); // Close the dialog
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                '/adminLogin',
-                    (route) => false, // Clear all previous routes
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => LoginScreen()),
               );
             },
             child: Text('Yes'),

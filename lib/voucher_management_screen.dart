@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'database_helper.dart';
+import 'login_screen.dart';
 
 class VoucherManagementScreen extends StatefulWidget {
   @override
@@ -12,7 +13,6 @@ class _VoucherManagementScreenState extends State<VoucherManagementScreen> {
   final TextEditingController nameCtrl = TextEditingController();
   final TextEditingController descCtrl = TextEditingController();
   final TextEditingController pointsCtrl = TextEditingController();
-  final TextEditingController quantityCtrl = TextEditingController();
   DateTime? startDate, endDate;
   int? editingId;
   String? editingFirestoreId;
@@ -59,7 +59,6 @@ class _VoucherManagementScreenState extends State<VoucherManagementScreen> {
       'name': nameCtrl.text,
       'description': descCtrl.text,
       'ecoPointsRequired': int.tryParse(pointsCtrl.text) ?? 0,
-      'quantity': int.tryParse(quantityCtrl.text) ?? 0,
       'startDate': startDate?.toIso8601String(),
       'endDate': endDate?.toIso8601String(),
     };
@@ -85,7 +84,6 @@ class _VoucherManagementScreenState extends State<VoucherManagementScreen> {
     nameCtrl.clear();
     descCtrl.clear();
     pointsCtrl.clear();
-    quantityCtrl.clear();
     startDate = null;
     endDate = null;
     editingId = null;
@@ -97,7 +95,6 @@ class _VoucherManagementScreenState extends State<VoucherManagementScreen> {
       nameCtrl.text = v['name'];
       descCtrl.text = v['description'];
       pointsCtrl.text = v['ecoPointsRequired'].toString();
-      quantityCtrl.text = v['quantity'].toString();
       startDate = DateTime.tryParse(v['startDate'] ?? '');
       endDate = DateTime.tryParse(v['endDate'] ?? '');
       editingId = v['id'];
@@ -123,8 +120,10 @@ class _VoucherManagementScreenState extends State<VoucherManagementScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.of(ctx).pop();
-              Navigator.of(context).pushReplacementNamed('/adminLogin');
+              Navigator.of(ctx).pop(); // Close the dialog
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => LoginScreen()),
+              );
             },
             child: Text('Yes'),
           ),
@@ -168,12 +167,6 @@ class _VoucherManagementScreenState extends State<VoucherManagementScreen> {
                     decoration: InputDecoration(labelText: 'EcoPoints Required'),
                     keyboardType: TextInputType.number,
                     validator: (v) => v!.isEmpty ? 'Enter points' : null,
-                  ),
-                  TextFormField(
-                    controller: quantityCtrl,
-                    decoration: InputDecoration(labelText: 'Quantity'),
-                    keyboardType: TextInputType.number,
-                    validator: (v) => v!.isEmpty ? 'Enter quantity' : null,
                   ),
                   Row(
                     children: [
@@ -226,7 +219,7 @@ class _VoucherManagementScreenState extends State<VoucherManagementScreen> {
                   final v = vouchers[index];
                   return ListTile(
                     title: Text(v['name'] ?? ''),
-                    subtitle: Text('${v['description'] ?? ''} \nPoints: ${v['ecoPointsRequired']}\nQuantity: ${v['quantity']}'),
+                    subtitle: Text('${v['description'] ?? ''} \nPoints: ${v['ecoPointsRequired']}'),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

@@ -104,18 +104,17 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE vouchers (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        firestoreID TEXT,
-        name TEXT NOT NULL,
-        description TEXT,
-        startDate TEXT,
-        endDate TEXT,
-        ecoPointsRequired INTEGER,
-        quantity INTEGER
-      )
-    ''');
-
+    CREATE TABLE vouchers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      firestoreID TEXT,
+      name TEXT NOT NULL,
+      description TEXT,
+      startDate TEXT,
+      endDate TEXT,
+      ecoPointsRequired INTEGER,
+      redeemedBy TEXT  -- Comma-separated list of userIDs
+    )
+  ''');
   }
 
   // Anonymous sign-in method
@@ -1150,7 +1149,6 @@ class DatabaseHelper {
             .collection('vouchers')
             .doc(voucher['firestoreID'])
             .update({
-          'quantity': voucher['quantity'],
           'redeemedBy': voucher['redeemedBy'],
           'name': voucher['name'],
           'description': voucher['description'],
