@@ -103,10 +103,19 @@ class _RegisteredCarpoolPageState extends State<RegisteredCarpoolPage> {
     }
   }
 
-
   void _completeCarpool(int index) async {
     final carpool = registeredCarpools[index];
     final carpoolID = carpool['id'];
+
+    // Ensure there are no requested rides before completing the carpool
+    bool hasRequested = await DatabaseHelper.instance.hasRideStatus(carpoolID, 'requested');
+
+    if (hasRequested) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Cannot complete: There are passengers who have requested but not accepted or rejected.')),
+      );
+      return; // Exit the function without completing the carpool
+    }
 
     // Ensure no confirmed passenger has incomplete ride
     bool hasPending = await DatabaseHelper.instance.hasUncompletedConfirmedRides(carpoolID);
@@ -115,11 +124,15 @@ class _RegisteredCarpoolPageState extends State<RegisteredCarpoolPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Cannot complete: Some confirmed passengers have not completed their ride.')),
       );
-      return;
+      return; // Exit the function without completing the carpool
     }
 
+    // Proceed with completing the carpool
     if (carpool['status'] == 'active') {
       _showConfirmationDialog(carpool['firestoreID'], 'completed');
+
+      // Update earnings in the carpool table after completing
+      await DatabaseHelper.instance.updateCarpoolEarnings(carpoolID);
     }
   }
 
@@ -144,9 +157,6 @@ class _RegisteredCarpoolPageState extends State<RegisteredCarpoolPage> {
       _showConfirmationDialog(carpool['firestoreID'], 'canceled');
     }
   }
-
-
-
 
   // Navigate to Driver Confirm Ride Page
   void _openDriverConfirmRidePage(int carpoolID) {
