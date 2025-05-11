@@ -111,35 +111,43 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
   }
 
   // Validation function
+  // Validation function
   String? _validateForm() {
-    if (_selectedPickUp.isEmpty) {
-      return "Pick-Up Point is required.";
+    // Validate pick-up and drop-off points to ensure they're not the same
+    if (_selectedPickUp == _selectedDropOff) {
+      return "Pick-Up and Drop-Off points cannot be the same.";
     }
-    if (_selectedDropOff.isEmpty) {
-      return "Drop-Off Point is required.";
+
+    // Validate that available seats are between 1 and 4
+    if (_availableSeats < 1 || _availableSeats > 4) {
+      return "Available seats must be between 1 and 4.";
     }
+
     if (_dateController.text.isEmpty ||
         DateTime.parse(_dateController.text).isBefore(DateTime.now())) {
       return "Please select a future date.";
     }
+
     if (_timeController.text.isEmpty ||
         DateTime.now().isAfter(DateTime.now().add(Duration(hours: 1)))) {
       return "Please select a future time.";
     }
-    if (_availableSeats < 1) {
-      return "Available Seats must be at least 1.";
-    }
+
     if (_carPlateController.text.isEmpty) {
       return "Car Plate Number is required.";
     }
+
     if (_carColorController.text.isEmpty) {
       return "Car Color is required.";
     }
+
     if (_carModelController.text.isEmpty) {
       return "Car Model is required.";
     }
+
     return null;
   }
+
 
   // Show alert dialog after successful registration
   void _showSuccessDialog() {
@@ -162,6 +170,7 @@ class _CarpoolRegistrationPageState extends State<CarpoolRegistrationPage> {
     );
   }
 
+  // Function to submit carpool details
   // Function to submit carpool details
   void _submitCarpool() async {
     String? validationMessage = _validateForm();
