@@ -62,10 +62,11 @@ class _RegisteredCarpoolPageState extends State<RegisteredCarpoolPage> {
     );
   }
 
+
   // Update carpool status to 'inactive'
   Future<void> _updateCarpoolStatus(String firestoreCarpoolID, String action) async {
     try {
-      // 1. Update Firestore status to 'inactive'
+      // 1. Update Firestore status to 'inactive' (or completed/canceled)
       await DatabaseHelper.instance.updateCarpoolStatusToInactive(firestoreCarpoolID);
 
       // 2. Re-sync Firestore -> SQLite to reflect the updated data
@@ -78,20 +79,16 @@ class _RegisteredCarpoolPageState extends State<RegisteredCarpoolPage> {
         final localCarpoolID = carpool['id'] as int;
 
         // 4. Add to local history table using local carpool ID
-        await DatabaseHelper.instance.addCarpoolHistory(
-          localCarpoolID,
-          widget.userID,
-          action,
-          action == 'completed' ? 10.0 : 0.0,
-        );
-
-        // Optional: add to Firestore history
         await DatabaseHelper.instance.addCarpoolHistoryToFirestore(
           firestoreCarpoolID,
           widget.userID,
           action,
-          action == 'completed' ? 10.0 : 0.0,
+          action == 'completed' ? await DatabaseHelper.instance.calculateDriverEarnings(localCarpoolID) : 0.0,
         );
+
+// Immediately sync latest history from Firestore to SQLite
+        await DatabaseHelper.instance.syncCarpoolHistoryFromFirestoreToSQLite(widget.userID);
+
       }
 
       // 5. Show success and reload display from local
@@ -107,29 +104,49 @@ class _RegisteredCarpoolPageState extends State<RegisteredCarpoolPage> {
   }
 
 
-
   void _completeCarpool(int index) async {
     final carpool = registeredCarpools[index];
+    final carpoolID = carpool['id'];
+
+    // Ensure no confirmed passenger has incomplete ride
+    bool hasPending = await DatabaseHelper.instance.hasUncompletedConfirmedRides(carpoolID);
+
+    if (hasPending) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Cannot complete: Some confirmed passengers have not completed their ride.')),
+      );
+      return;
+    }
 
     if (carpool['status'] == 'active') {
-      // Show confirmation dialog for completing the carpool
       _showConfirmationDialog(carpool['firestoreID'], 'completed');
-    } else {
-      print("This carpool is not active.");
     }
   }
 
-  // Cancel carpool
+
   void _cancelCarpool(int index) async {
     final carpool = registeredCarpools[index];
+    final carpoolID = carpool['id'];
 
+    // Check if there are any requested or confirmed passengers
+    bool hasRequested = await DatabaseHelper.instance.hasRideStatus(carpoolID, 'requested');
+    bool hasConfirmed = await DatabaseHelper.instance.hasRideStatus(carpoolID, 'confirmed');
+
+    if (hasRequested || hasConfirmed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Cannot cancel: There are passengers who requested or were accepted.')),
+      );
+      return;
+    }
+
+    // Proceed with cancellation
     if (carpool['status'] == 'active') {
-      // Show confirmation dialog for canceling the carpool
       _showConfirmationDialog(carpool['firestoreID'], 'canceled');
-    } else {
-      print("This carpool cannot be canceled.");
     }
   }
+
+
+
 
   // Navigate to Driver Confirm Ride Page
   void _openDriverConfirmRidePage(int carpoolID) {

@@ -342,12 +342,12 @@ class DatabaseHelper {
         'ridePreference': carpool['ridePreference'],
         'status': carpool['status'],
         'earnings': carpool['earnings'],
-        'carPlateNumber': carpool['carPlateNumber'],  // Car plate number
-        'carColor': carpool['carColor'],              // Car color
-        'carModel': carpool['carModel'],              // Car model
+        'carPlateNumber': carpool['carPlateNumber'],
+        'carColor': carpool['carColor'],
+        'carModel': carpool['carModel'],
       });
 
-      // After successfully adding to Firestore, insert into SQLite
+      // After successfully adding to Firestore, insert into SQLite with the firestoreID
       Map<String, dynamic> carpoolData = {
         'userID': carpool['userID'],
         'pickUpPoint': carpool['pickUpPoint'],
@@ -358,10 +358,10 @@ class DatabaseHelper {
         'ridePreference': carpool['ridePreference'],
         'status': carpool['status'],
         'earnings': carpool['earnings'],
-        'carPlateNumber': carpool['carPlateNumber'],  // Car plate number
-        'carColor': carpool['carColor'],              // Car color
-        'carModel': carpool['carModel'],              // Car model
-        'firestoreID': docRef.id,
+        'carPlateNumber': carpool['carPlateNumber'],
+        'carColor': carpool['carColor'],
+        'carModel': carpool['carModel'],
+        'firestoreID': docRef.id,  // Store Firestore ID for reference
       };
 
       // Insert into SQLite
@@ -371,12 +371,13 @@ class DatabaseHelper {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
 
-      return carpoolID; // Return SQLite ID for future references
+      return carpoolID; // Return the SQLite carpoolID
     } catch (e) {
       print('Failed to insert carpool: $e');
       return -1; // Return error code if Firestore insert fails
     }
   }
+
 
 
   // Insert a new ride into both Firestore and SQLite
@@ -1242,50 +1243,31 @@ class DatabaseHelper {
 
   Future<void> syncCarpoolHistoryFromFirestoreToSQLite(int userID) async {
     try {
-      // Fetch data from Firestore collection 'carpool_history' for a specific user
-      QuerySnapshot snapshot = await FirebaseFirestore.instance
+      final snapshot = await FirebaseFirestore.instance
           .collection('carpool_history')
-          .where('userID', isEqualTo: userID) // Filter by userID
+          .where('userID', isEqualTo: userID)
           .get();
-      final db = await database;
 
-      // Loop through each Firestore document
+      final db = await DatabaseHelper.instance.database;
+
       for (var doc in snapshot.docs) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-
-        // Add the Firestore document ID to the data
+        final data = doc.data() as Map<String, dynamic>;
         data['firestoreID'] = doc.id;
 
-        // Check if the history entry already exists in SQLite using Firestore ID
-        final existingHistory = await db.query(
+        final existing = await db.query(
           'carpool_history',
-          where: 'firestoreID = ?',
-          whereArgs: [data['firestoreID']],
+          where: 'carpoolID = ? AND userID = ? AND status = ?',
+          whereArgs: [data['carpoolID'], data['userID'], data['status']],
         );
 
-        if (existingHistory.isEmpty) {
-          // If the entry doesn't exist, insert it into SQLite
-          await db.insert(
-            'carpool_history',
-            data,
-            conflictAlgorithm: ConflictAlgorithm.replace,  // Replace existing data if conflict
-          );
-          print('Inserted carpool history: ${doc.id}');
+        if (existing.isEmpty) {
+          await db.insert('carpool_history', data, conflictAlgorithm: ConflictAlgorithm.replace);
         } else {
-          // If the entry already exists, update it in SQLite
-          await db.update(
-            'carpool_history',
-            data,
-            where: 'firestoreID = ?',
-            whereArgs: [data['firestoreID']],
-          );
-          print('Updated carpool history: ${doc.id}');
+          print("Skipped duplicate carpool history: ${doc.id}");
         }
       }
-
-      print('✅ Carpool history synced from Firestore to SQLite.');
     } catch (e) {
-      print('❌ Error syncing carpool history from Firestore: $e');
+      print('❌ Failed syncing carpool history: $e');
     }
   }
 
@@ -1302,6 +1284,49 @@ class DatabaseHelper {
       return result.first;
     }
     return null;
+  }
+  Future<bool> hasRideStatus(int carpoolID, String status) async {
+    final db = await database;
+    final result = await db.query(
+      'rides',
+      where: 'carpoolID = ? AND status = ?',
+      whereArgs: [carpoolID, status],
+    );
+    return result.isNotEmpty;
+  }
+  Future<double> calculateDriverEarnings(int carpoolID) async {
+    final db = await database;
+
+    // Fetch the number of confirmed passengers for this carpool
+    final confirmedRides = await db.query(
+      'rides',
+      where: 'carpoolID = ? AND status = ?',
+      whereArgs: [carpoolID, 'confirmed'],
+    );
+
+    // Calculate earnings based on a fixed value per confirmed ride (e.g., RM2 per confirmed passenger)
+    double earnings = 2.0 * confirmedRides.length;
+
+    return earnings;
+  }
+  Future<bool> hasUncompletedConfirmedRides(int carpoolID) async {
+    final db = await database;
+
+    // Fetch all confirmed rides where status is not 'completed'
+    final result = await db.query(
+      'rides',
+      where: 'carpoolID = ? AND status = ?',
+      whereArgs: [carpoolID, 'confirmed'],
+    );
+
+    // Check if any of the confirmed rides are not completed
+    for (var ride in result) {
+      if (ride['status'] != 'completed') {
+        return true; // Found an uncompleted confirmed ride
+      }
+    }
+
+    return false; // All confirmed rides are completed
   }
 
 
