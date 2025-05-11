@@ -151,8 +151,6 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                     horizontal: 20,
                     vertical: 8,
                   ),
-                  child: Container(
-                    height: 20,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -173,7 +171,6 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                       ],
                     ),
                   ),
-                ),
 
                 // Horizontal divider (like <hr>)
                 Divider(thickness: 1),
@@ -268,14 +265,26 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                                 Text('${carpool['availableSeats']}', style: TextStyle(fontSize: 16)),
                               ],
                             ),
-                            SizedBox(height: 8),
                             if (hasPreference)
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('Preference:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                  Text('${carpool['ridePreference']}', style: TextStyle(fontSize: 16)),
-                                ],
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Container(
+                                  width: double.infinity, // ensure full width for wrapping
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Preferences:',
+                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        '${carpool['ridePreference']}',
+                                        style: TextStyle(fontSize: 16),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                           ],
                         ),
@@ -598,6 +607,7 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                                       child: Text(
                                         'Preference: ${carpool['ridePreference']}',
                                         style: TextStyle(fontSize: 16),
+                                        softWrap: true,
                                       ),
                                     ),
                                   SizedBox(height: 4),

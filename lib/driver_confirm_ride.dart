@@ -182,10 +182,8 @@ class _DriverConfirmRideState extends State<DriverConfirmRide> {
         final carpool = await DatabaseHelper.instance.getCarpoolByID(rideID);
         final driverID = carpool?['userID'];
         double baseFee = 2.00;
-        print('testing2');
 
         if (driverID != null) {
-          print('testing1');
           // Fetch the current ecoPoints of the user
           final user = await DatabaseHelper.instance.getUserByID(driverID);
           final currentEcoPoints = user?['ecoPoints'] ?? 0;
@@ -206,7 +204,7 @@ class _DriverConfirmRideState extends State<DriverConfirmRide> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Ride Completed! You earned RM${rewardPerPersonRM.toStringAsFixed(2)} and +${2 * seatsToReduce} ecoPoints!',
+                'Ride Confirmed! You will earn RM${rewardPerPersonRM.toStringAsFixed(2)} and +${2 * seatsToReduce} ecoPoints from this ride!',
               ),
             ),
           );
@@ -310,7 +308,13 @@ class _DriverConfirmRideState extends State<DriverConfirmRide> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Icon(Icons.directions_car, color: Colors.blueAccent),
+                      IconButton(
+                        icon: Icon(Icons.close, color: Colors.red),
+                        // "X" icon
+                        onPressed: () {
+                          Navigator.pop(context); // Close the bottom sheet
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -630,7 +634,7 @@ class _DriverConfirmRideState extends State<DriverConfirmRide> {
                                   if (status == 'confirmed') ...[
                                     SizedBox(height: 8),
                                     Text(
-                                      '🎉 Earned: RM${(baseFee * seat).toStringAsFixed(2)} and +${(baseEcoPoints * seat)} ecoPoints!',
+                                      'Earn: RM${(baseFee * seat).toStringAsFixed(2)} and +${(baseEcoPoints * seat)} ecoPoints!',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
