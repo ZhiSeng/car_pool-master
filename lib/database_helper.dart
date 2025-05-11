@@ -1091,8 +1091,8 @@ class DatabaseHelper {
 
     final result = await db.query(
       'rides',
-      where: 'userID = ? AND status != ?',
-      whereArgs: [userID, 'completed'],
+      where: 'userID = ? AND status NOT IN (?, ?, ?)',
+      whereArgs: [userID, 'completed', 'canceled', 'expired'],
       limit: 1,
     );
 
@@ -1116,9 +1116,9 @@ class DatabaseHelper {
         whereArgs: [userID],
       );
 
-      if (user.isNotEmpty) {
-        final firestoreID = user.first['firestoreID'] as String?;
+      final firestoreID = await _getFirestoreIDFromFirestore(userID);
 
+      if (user.isNotEmpty) {
         if (firestoreID == null) {
           print('Firestore ID is missing for user $userID');
           return;
@@ -1134,6 +1134,57 @@ class DatabaseHelper {
       }
     } catch (e) {
       print('Error updating ecoPoints: $e');
+    }
+  }
+
+  // Function to get Firestore ID from Firestore using userID
+  Future<String?> _getFirestoreIDFromFirestore(int userID) async {
+    try {
+      final userDocSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('userID', isEqualTo: userID)
+          .limit(1)
+          .get();
+
+      if (userDocSnapshot.docs.isNotEmpty) {
+        // Get the Firestore document ID (firestoreID)
+        final firestoreID = userDocSnapshot.docs.first.id;
+        return firestoreID;
+      } else {
+        print('User with userID $userID not found in Firestore');
+        return null;
+      }
+    } catch (e) {
+      print('Error fetching Firestore ID: $e');
+      return null;
+    }
+  }
+
+  Future<String> getRideStatus(int userID) async {
+    final db = await database;
+
+    // Query to find the user's current ride status
+    final result = await db.query(
+      'carpools',
+      where: 'userID = ?',
+      whereArgs: [userID],
+      limit: 1,  // We only care about the most recent ride, if any
+    );
+
+    if (result.isNotEmpty) {
+      // Get the ride status from the result
+      String status = result.first['status'] as String? ?? 'unknown';  // Default to 'unknown' if no status found
+
+      // Check if the status is one of the "inactive" statuses
+      if (['expired', 'completed', 'canceled'].contains(status.toLowerCase())) {
+        return 'inactive';
+      } else {
+        // Any other status is considered active
+        return 'active';
+      }
+    } else {
+      // If no ride found, return 'inactive'
+      return 'inactive';
     }
   }
 
@@ -1397,6 +1448,23 @@ class DatabaseHelper {
     } catch (e) {
       print('Error updating earnings in Firestore: $e');
     }
+  }
+
+  Future<int?> getEcoPointsByUserID(int userID) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'users',
+      columns: ['ecoPoints'],  // Only fetch ecoPoints column
+      where: 'userID = ?',
+      whereArgs: [userID],
+    );
+
+    // Check if we have results and return the ecoPoints
+    if (result.isNotEmpty) {
+      return result.first['ecoPoints'] as int?;  // Extract and return ecoPoints
+    }
+
+    return null; // Return null if no user found
   }
 
 

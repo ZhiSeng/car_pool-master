@@ -142,8 +142,9 @@ class _DriverConfirmRideState extends State<DriverConfirmRide> {
       // Filter rides by status "requested"
       final requestedRides =
           fetchedRides.where((ride) {
-            return ride['status'] ==
-                'requested' || ride['status'] == 'confirmed'; // Assuming "status" is the field name for ride status
+            return ride['status'] == 'requested' ||
+                ride['status'] ==
+                    'confirmed'; // Assuming "status" is the field name for ride status
           }).toList();
 
       setState(() {
@@ -178,25 +179,62 @@ class _DriverConfirmRideState extends State<DriverConfirmRide> {
         seatsToReduce,
       );
       if (status == 'confirmed') {
-        final ride = await DatabaseHelper.instance.getRideByID(rideID);
-        final userID = ride?['userID'];
+        final carpool = await DatabaseHelper.instance.getCarpoolByID(rideID);
+        final driverID = carpool?['userID'];
         double baseFee = 2.00;
+        print('testing2');
 
-        if (userID != null) {
+        if (driverID != null) {
+          print('testing1');
           // Fetch the current ecoPoints of the user
-          final user = await DatabaseHelper.instance.getUserByID(userID);
+          final user = await DatabaseHelper.instance.getUserByID(driverID);
           final currentEcoPoints = user?['ecoPoints'] ?? 0;
 
           // Calculate new ecoPoints and fees
           final rewardPerPersonRM = baseFee * seatsToReduce;
-          final updatedEcoPoints = currentEcoPoints + (2 * seatsToReduce); // 2 points for each person
+          final updatedEcoPoints =
+              currentEcoPoints +
+              (2 * seatsToReduce); // 2 points for each person
 
           // Update the ecoPoints in the database
-          await DatabaseHelper.instance.updateUserEcoPoints(userID, updatedEcoPoints);
+          await DatabaseHelper.instance.updateUserEcoPoints(
+            driverID,
+            updatedEcoPoints,
+          );
 
           // Show a SnackBar to inform the user about the updated ecoPoints
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ride Completed! You earned RM${rewardPerPersonRM.toStringAsFixed(2)} and +${2 * seatsToReduce} ecoPoints!')),
+            SnackBar(
+              content: Text(
+                'Ride Completed! You earned RM${rewardPerPersonRM.toStringAsFixed(2)} and +${2 * seatsToReduce} ecoPoints!',
+              ),
+            ),
+          );
+          double totalEarnings =
+              rewardPerPersonRM *
+              seatsToReduce; // Total earnings from passengers
+        }
+
+        final ride = await DatabaseHelper.instance.getRideByID(rideID);
+        final passengerID =
+            ride?['userID']; // Fetch the passenger userID from the ride table
+
+        if (passengerID != null) {
+          print('testing3');
+          // Fetch the current eco points of the passenger
+          final passenger = await DatabaseHelper.instance.getUserByID(
+            passengerID,
+          );
+          final currentPassengerEcoPoints = passenger?['ecoPoints'] ?? 0;
+
+          final updatedPassengerEcoPoints =
+              currentPassengerEcoPoints +
+              (seatsToReduce); // 1 point for each passenger (half of the driver's reward)
+
+          // Update the passenger's eco points in the local database and Firestore
+          await DatabaseHelper.instance.updateUserEcoPoints(
+            passengerID,
+            updatedPassengerEcoPoints,
           );
         }
       } else {
@@ -219,7 +257,12 @@ class _DriverConfirmRideState extends State<DriverConfirmRide> {
     await _syncRidesAndFetchData();
   }
 
-  void _showRideDetails(BuildContext context, int rideID, int seat, String status) {
+  void _showRideDetails(
+    BuildContext context,
+    int rideID,
+    int seat,
+    String status,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -332,7 +375,11 @@ class _DriverConfirmRideState extends State<DriverConfirmRide> {
                           SizedBox(height: 6),
                           Text(
                             '🎉 You will earn RM${(baseFee * seat).toStringAsFixed(2)} and +${(baseEcoPoints * seat)} ecoPoints for this ride!',
-                            style: TextStyle(fontSize: 16, color: Colors.green, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.green,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                         SizedBox(height: 6),
@@ -360,13 +407,18 @@ class _DriverConfirmRideState extends State<DriverConfirmRide> {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: status == 'confirmed'
-                              ? null // Disable if confirmed
-                              : () async {
-                            await _confirmOrRejectRide(rideID, 'rejected', 0);
-                            Navigator.pop(context);
-                            await _refreshData();
-                          },
+                          onPressed:
+                              status == 'confirmed'
+                                  ? null // Disable if confirmed
+                                  : () async {
+                                    await _confirmOrRejectRide(
+                                      rideID,
+                                      'rejected',
+                                      0,
+                                    );
+                                    Navigator.pop(context);
+                                    await _refreshData();
+                                  },
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.grey[700],
                             side: BorderSide(color: Colors.grey),
@@ -377,22 +429,32 @@ class _DriverConfirmRideState extends State<DriverConfirmRide> {
                       SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: status == 'confirmed'
-                              ? null // Disable if confirmed
-                              : () async {
-                            if (availableSeats != null && availableSeats! > 0) {
-                              await _confirmOrRejectRide(rideID, 'confirmed', seat);
-                              Navigator.pop(context);
-                              await _refreshData();
-                              Navigator.pop(context);
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('No available seats to confirm!'),
-                                ),
-                              );
-                            }
-                          },
+                          onPressed:
+                              status == 'confirmed'
+                                  ? null // Disable if confirmed
+                                  : () async {
+                                    if (availableSeats != null &&
+                                        availableSeats! > 0) {
+                                      await _confirmOrRejectRide(
+                                        rideID,
+                                        'confirmed',
+                                        seat,
+                                      );
+                                      Navigator.pop(context);
+                                      await _refreshData();
+                                      Navigator.pop(context);
+                                    } else {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'No available seats to confirm!',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blueAccent,
                           ),
@@ -402,20 +464,29 @@ class _DriverConfirmRideState extends State<DriverConfirmRide> {
                       SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: status != 'confirmed'
-                              ? null
-                              : () async {
-                            await _confirmOrRejectRide(rideID, 'completed', seat);
-                            Navigator.pop(context);
-                            await _refreshData();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Ride Completed!')),
-                            );
-                          },
+                          onPressed:
+                              status != 'confirmed'
+                                  ? null
+                                  : () async {
+                                    await _confirmOrRejectRide(
+                                      rideID,
+                                      'completed',
+                                      seat,
+                                    );
+                                    Navigator.pop(context);
+                                    await _refreshData();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Ride Completed!'),
+                                      ),
+                                    );
+                                  },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.greenAccent,
                           ),
-                          child: Text('Complete', style: TextStyle(fontSize: 12,),
+                          child: Text(
+                            'Complete',
+                            style: TextStyle(fontSize: 12),
                           ),
                         ),
                       ),
@@ -578,7 +649,12 @@ class _DriverConfirmRideState extends State<DriverConfirmRide> {
                                     child: ElevatedButton(
                                       onPressed: () {
                                         // Pass the rideID to the _showRideDetails method
-                                        _showRideDetails(context, rideID, seat, status);
+                                        _showRideDetails(
+                                          context,
+                                          rideID,
+                                          seat,
+                                          status,
+                                        );
                                       },
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.blueAccent,

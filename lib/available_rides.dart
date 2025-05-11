@@ -29,12 +29,14 @@ class AvailableRidesPage extends StatefulWidget {
 
 class _AvailableRidesPageState extends State<AvailableRidesPage> {
   late Future<List<Map<String, dynamic>>> activeCarpools;
+  int? currentEcoPoints;
 
   @override
   void initState() {
     super.initState();
     activeCarpools = Future.value([]);
     _syncDataAndFetchRides();
+    _fetchCurrentEcoPoints();
   }
 
   // Sync Firestore data and then fetch rides from SQLite
@@ -58,6 +60,16 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
     });
 
     return rides;
+  }
+
+  // Fetch the current eco points of the user
+  Future<void> _fetchCurrentEcoPoints() async {
+    int? ecoPoints = await DatabaseHelper.instance.getEcoPointsByUserID(
+      widget.userID,
+    );
+    setState(() {
+      currentEcoPoints = ecoPoints;
+    });
   }
 
   String _formatDateTime(String date, String time) {
@@ -113,9 +125,9 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
       ),
       builder: (BuildContext context) {
         return DraggableScrollableSheet(
-          initialChildSize: 0.6,
-          minChildSize: minChildSize,
-          maxChildSize: 0.6,
+          initialChildSize: 0.75,
+          minChildSize: 0.75,
+          maxChildSize: 0.75,
           expand: false,
           builder: (context, scrollController) {
             return Column(
@@ -139,18 +151,27 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                     horizontal: 20,
                     vertical: 8,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Confirm Ride',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                  child: Container(
+                    height: 20,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Confirm Ride',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      Icon(Icons.directions_car, color: Colors.blueAccent),
-                    ],
+                        IconButton(
+                          icon: Icon(Icons.close, color: Colors.red),
+                          // "X" icon
+                          onPressed: () {
+                            Navigator.pop(context); // Close the bottom sheet
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
 
@@ -221,79 +242,42 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                           ],
                         ),
                         SizedBox(height: 8),
-                        Text(
-                          'Car Model: ${carpool['carModel']}',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Date & Time: ${_formatDateTime(carpool['date'], carpool['time'])}',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Available Seats: ${carpool['availableSeats']}',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                        if (hasPreference)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6.0),
-                            child: Text(
-                              'Preference: ${carpool['ridePreference']}',
-                              style: TextStyle(fontSize: 16),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Car Model:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                Text('${carpool['carModel']}', style: TextStyle(fontSize: 16)),
+                              ],
                             ),
-                          ),
-
-                        // todo:: add the actual eco points at here to show the current eco points and add the points with calculated future eco points will added
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Text(
-                            'Eco Points: +${widget.seatCount * 2}',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green,
+                            SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Date & Time:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                Text('${_formatDateTime(carpool['date'], carpool['time'])}', style: TextStyle(fontSize: 16)),
+                              ],
                             ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Payment Method',
-                                style: TextStyle(fontSize: 16),
-                              ),
+                            SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Available Seats:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                Text('${carpool['availableSeats']}', style: TextStyle(fontSize: 16)),
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            if (hasPreference)
                               Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Icon(Icons.attach_money, color: Colors.green, size: 20),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Cash',
-                                    style: TextStyle(fontSize: 16),
-                                  ),
+                                  Text('Preference:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                  Text('${carpool['ridePreference']}', style: TextStyle(fontSize: 16)),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
-
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Total Fare',
-                                style: TextStyle(fontSize: 16),
-                              ),
-                              Text(
-                                'RM ${(widget.seatCount * seatFee).toStringAsFixed(2)}',
-                                style: TextStyle(fontSize: 16),
-                              ),
-                            ],
-                          ),
+                          ],
                         ),
                       ],
                     ),
@@ -327,6 +311,100 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                     ],
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    // Distribute space between the widgets
+                    children: [
+                      // Eco Points: (Left aligned)
+                      Text(
+                        'Eco Points: ',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color:
+                          Colors
+                              .black, // 'Eco Points' text in black and bold
+                        ),
+                      ),
+                      // Right aligned: Current Eco Points and Increment
+                      Row(
+                        children: [
+                          Text(
+                            '${currentEcoPoints ?? 0}',
+                            // Current eco points, default to 0 if null
+                            style: TextStyle(
+                              fontSize: 16,
+                            ),
+                          ),
+                          SizedBox(width: 5),
+                          // Small gap between the eco points and increment
+                          Text(
+                            '+${widget.seatCount * 1}',
+                            // Increment points (e.g., +10)
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color:
+                              Colors
+                                  .green, // Increment in green color
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Payment Method:',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.attach_money,
+                            color: Colors.green,
+                            size: 20,
+                          ),
+                          SizedBox(width: 4),
+                          Text('Cash', style: TextStyle(fontSize: 16)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Total Fares:',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'RM ${(widget.seatCount * seatFee).toStringAsFixed(2)}',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
                 // Bottom buttons
                 Padding(
                   padding: const EdgeInsets.symmetric(
@@ -350,14 +428,20 @@ class _AvailableRidesPageState extends State<AvailableRidesPage> {
                         child: ElevatedButton(
                           onPressed: () async {
                             DatabaseHelper dbHelper = DatabaseHelper.instance;
-                            int userID = widget.userID; // replace with the current logged-in passenger's userID
-                            bool hasRide = await dbHelper.hasOngoingRide(userID);
+                            int userID =
+                                widget
+                                    .userID; // replace with the current logged-in passenger's userID
+                            bool hasRide = await dbHelper.hasOngoingRide(
+                              userID,
+                            );
 
                             if (hasRide) {
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('You already have an ongoing or pending ride. Complete it before requesting a new one.'),
+                                  content: Text(
+                                    'You already have an ongoing or pending ride. Complete it before requesting a new one.',
+                                  ),
                                   backgroundColor: Colors.red,
                                 ),
                               );

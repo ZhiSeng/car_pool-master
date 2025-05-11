@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'available_rides.dart';
 import 'package:car_pool/carpool_registration.dart';
+import 'database_helper.dart';
 
 class FindARidePage extends StatefulWidget {
   final int userID;
@@ -29,6 +30,24 @@ class _FindARidePageState extends State<FindARidePage> {
   // List of locations for the dropdown
   // final List<String> locations = ['Location A', 'Location B', 'Location C', 'Location D', 'TARUMT Main Gate', 'TARUMT East Campus'];
   final List<String> locations = CarpoolRegistrationPage.locations;
+  String userCarpoolStatus = 'unknown';
+
+  @override
+  void initState() {
+    super.initState();
+    _checkUserCarpoolStatus();
+  }
+
+  void _checkUserCarpoolStatus() async {
+    final dbHelper = DatabaseHelper.instance;
+
+    List<Map<String, dynamic>> carpools = await dbHelper.getCarpools(widget.userID);
+
+    setState(() {
+      // If any active carpool exists, block the user
+      userCarpoolStatus = carpools.isNotEmpty ? 'active' : 'inactive';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +123,11 @@ class _FindARidePageState extends State<FindARidePage> {
                 child: ElevatedButton(
                   onPressed: () {
                     // Call validation before proceeding
-                    _validateLocations();
+                    if (userCarpoolStatus == 'active') {
+                      _showSnackbar('You already have an active carpool. Please complete it before finding a new ride.');
+                    } else {
+                      _validateLocations();
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blueAccent,
@@ -114,7 +137,11 @@ class _FindARidePageState extends State<FindARidePage> {
                     ),
                     textStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  child: Text('Find Ride'),
+                  child: Text('Find Ride',
+                    style: TextStyle(
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
             ],
